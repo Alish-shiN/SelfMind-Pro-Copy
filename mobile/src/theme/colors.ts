@@ -1,0 +1,17 @@
+export const colors = {
+  background: '#FFFFFF',
+  backgroundSoft: '#F0F4FF',
+  backgroundOnboarding: '#F0F4F8',
+  text: '#000000',
+  textMuted: '#4A4A4A',
+  textPlaceholder: '#9CA3AF',
+  borderInput: '#6B9FFF',
+  coral: '#EE715F',
+  coralButton: '#EE715F',
+  periwinkle: '#D6E0FF',
+  accentGreen: '#34A853',
+  blobBlue: '#C8E0FF',
+  blobPink: '#FFD4D4',
+  white: '#FFFFFF',
+  dotOutline: '#EE715F',
+};
