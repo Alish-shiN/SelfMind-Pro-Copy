@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str
     OPENAI_MODEL: str = "gpt-5-mini"
+    BACKEND_CORS_ORIGINS: List[str] = ["*"]
 
 
     @property

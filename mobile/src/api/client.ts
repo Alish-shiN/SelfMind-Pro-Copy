@@ -13,6 +13,26 @@ export class ApiError extends Error {
   }
 }
 
+function formatDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          const record = item as { msg?: unknown; loc?: unknown };
+          const msg = typeof record.msg === 'string' ? record.msg : JSON.stringify(item);
+          if (Array.isArray(record.loc)) return `${record.loc.join('.')}: ${msg}`;
+          return msg;
+        }
+        return String(item);
+      })
+      .join(', ');
+  }
+  if (detail && typeof detail === 'object') return JSON.stringify(detail);
+  return '';
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { auth?: boolean } = {}
@@ -46,8 +66,7 @@ export async function apiFetch<T>(
     let detail = text;
     try {
       const j = JSON.parse(text) as { detail?: unknown };
-      if (typeof j.detail === 'string') detail = j.detail;
-      else if (Array.isArray(j.detail)) detail = j.detail.map(String).join(', ');
+      detail = formatDetail(j.detail) || detail;
     } catch {
       /* keep text */
     }
