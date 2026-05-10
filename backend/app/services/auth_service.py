@@ -39,5 +39,11 @@ class AuthService:
                 detail="Invalid email or password"
             )
 
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is deactivated"
+            )
+
         token = create_access_token(subject=user.id)
         return {"access_token": token, "token_type": "bearer"}
