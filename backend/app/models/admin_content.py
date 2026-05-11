@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -7,6 +7,12 @@ from app.models.base import Base, TimestampMixin
 
 class AdminContentItem(TimestampMixin, Base):
     __tablename__ = "admin_content_items"
+    __table_args__ = (
+        CheckConstraint(
+            "content_type in ('motivational_prompt', 'onboarding_tip', 'ai_quiz_template')",
+            name="ck_admin_content_items_content_type_allowed",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     content_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)

@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.roles import ROLE_ADMIN, USER_ROLES
 from app.models.admin_content import AdminContentItem
 from app.models.ai_quiz_session import AIQuizSession
 from app.models.chat_message import ChatMessage
@@ -37,16 +38,38 @@ class AdminService:
         users = self.db.query(User).order_by(User.created_at.desc()).all()
         return [self._serialize_user_summary(user) for user in users]
 
-    def update_user_status(self, user_id: int, is_active: bool) -> dict:
+    def update_user_status(self, actor: User, user_id: int, is_active: bool) -> dict:
         user = self._get_user_or_404(user_id)
+        if actor.id == user.id and not is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Admins cannot deactivate their own account",
+            )
+        if user.role == ROLE_ADMIN and not is_active:
+            self._ensure_another_active_admin(user.id)
+
         user.is_active = is_active
         user.deactivated_at = None if is_active else datetime.now(timezone.utc)
         self.db.commit()
         self.db.refresh(user)
         return self._serialize_user_summary(user)
 
-    def update_user_role(self, user_id: int, role: str) -> dict:
+    def update_user_role(self, actor: User, user_id: int, role: str) -> dict:
+        if role not in USER_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role",
+            )
+
         user = self._get_user_or_404(user_id)
+        if actor.id == user.id and role != ROLE_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Admins cannot remove their own admin role",
+            )
+        if user.role == ROLE_ADMIN and role != ROLE_ADMIN:
+            self._ensure_another_active_admin(user.id)
+
         user.role = role
         self.db.commit()
         self.db.refresh(user)
@@ -185,6 +208,23 @@ class AdminService:
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return user
+
+    def _ensure_another_active_admin(self, user_id: int) -> None:
+        active_admins = (
+            self.db.query(func.count(User.id))
+            .filter(
+                User.role == ROLE_ADMIN,
+                User.is_active.is_(True),
+                User.id != user_id,
+            )
+            .scalar()
+            or 0
+        )
+        if active_admins < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="At least one active admin account must remain",
+            )
 
     def _serialize_user_summary(self, user: User) -> dict:
         return {

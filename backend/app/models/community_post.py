@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -8,6 +8,12 @@ from app.models.base import Base, TimestampMixin
 
 class CommunityPost(TimestampMixin, Base):
     __tablename__ = "community_posts"
+    __table_args__ = (
+        CheckConstraint(
+            "moderation_status in ('visible', 'hidden', 'pending_review')",
+            name="ck_community_posts_moderation_status_allowed",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(

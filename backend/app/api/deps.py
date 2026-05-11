@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.roles import ADMIN_ROLES, MODERATOR_ROLES
 from app.models.user import User
 
 ADMIN_ROLES = {"admin"}

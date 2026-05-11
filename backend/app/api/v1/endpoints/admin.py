@@ -41,7 +41,7 @@ def update_user_status(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).update_user_status(user_id, payload.is_active)
+    return AdminService(db).update_user_status(current_admin, user_id, payload.is_active)
 
 
 @router.patch("/users/{user_id}/role", response_model=AdminUserSummary)
@@ -51,7 +51,7 @@ def update_user_role(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).update_user_role(user_id, payload.role)
+    return AdminService(db).update_user_role(current_admin, user_id, payload.role)
 
 
 @router.get("/analytics/overview", response_model=AdminAnalyticsOverview)
