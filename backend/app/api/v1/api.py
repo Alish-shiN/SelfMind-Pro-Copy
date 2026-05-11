@@ -10,7 +10,8 @@ from app.api.v1.endpoints import (
     journal,
     users,
     ai_quiz,
-    admin
+    admin,
+    reminders
 )
 
 api_router = APIRouter()
@@ -24,3 +25,4 @@ api_router.include_router(chat.router)
 api_router.include_router(community.router)
 api_router.include_router(ai_quiz.router)
 api_router.include_router(admin.router)
+api_router.include_router(reminders.router)

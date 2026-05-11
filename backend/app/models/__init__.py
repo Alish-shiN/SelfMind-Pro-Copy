@@ -11,3 +11,4 @@ from app.models.ai_quiz_session import AIQuizSession
 from app.models.ai_quiz_answer import AIQuizAnswer
 from app.models.ai_quiz_result import AIQuizResult
 from app.models.admin_content import AdminContentItem
+from app.models.reminder_preference import ReminderPreference
