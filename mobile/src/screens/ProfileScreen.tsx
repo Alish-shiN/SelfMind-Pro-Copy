@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,6 +22,7 @@ import type { UserResponse } from '../api/auth';
 import { getReminderPreferences, ReminderPreference, updateReminderPreferences } from '../api/reminders';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
+type ReminderTimeField = 'journal_time' | 'mood_checkin_time' | 'ai_quiz_time';
 
 function formatJoined(iso: string) {
   try {
@@ -31,6 +33,81 @@ function formatJoined(iso: string) {
   }
 }
 
+
+function TimePickerModal({
+  visible,
+  value,
+  title,
+  onCancel,
+  onSelect,
+}: {
+  visible: boolean;
+  value: string;
+  title: string;
+  onCancel: () => void;
+  onSelect: (time: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    if (visible) setDraft(value);
+  }, [value, visible]);
+
+  const [selectedHour, selectedMinute] = draft.split(':');
+  const hours = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
+  const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+  const setHour = (hour: string) => setDraft(`${hour}:${selectedMinute || '00'}`);
+  const setMinute = (minute: string) => setDraft(`${selectedHour || '09'}:${minute}`);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.timeModalBackdrop}>
+        <View style={styles.timeModalCard}>
+          <Text style={styles.timeModalTitle}>{title}</Text>
+          <Text style={styles.timeModalValue}>{draft}</Text>
+          <View style={styles.timePickerRow}>
+            <ScrollView style={styles.timeColumn} showsVerticalScrollIndicator={false}>
+              {hours.map((hour) => (
+                <Pressable
+                  key={hour}
+                  style={[styles.timeOption, selectedHour === hour && styles.timeOptionActive]}
+                  onPress={() => setHour(hour)}
+                >
+                  <Text style={[styles.timeOptionText, selectedHour === hour && styles.timeOptionTextActive]}>
+                    {hour}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Text style={styles.timeSeparator}>:</Text>
+            <ScrollView style={styles.timeColumn} showsVerticalScrollIndicator={false}>
+              {minutes.map((minute) => (
+                <Pressable
+                  key={minute}
+                  style={[styles.timeOption, selectedMinute === minute && styles.timeOptionActive]}
+                  onPress={() => setMinute(minute)}
+                >
+                  <Text style={[styles.timeOptionText, selectedMinute === minute && styles.timeOptionTextActive]}>
+                    {minute}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+          <View style={styles.timeModalActions}>
+            <Pressable style={styles.timeCancelBtn} onPress={onCancel}>
+              <Text style={styles.timeCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable style={styles.timeSaveBtn} onPress={() => onSelect(draft)}>
+              <Text style={styles.timeSaveText}>Save time</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 function ReminderRow({ icon, label, value, enabled, disabled, onPress, onTimePress }: {
   icon: keyof typeof Ionicons.glyphMap;
@@ -71,6 +148,7 @@ export function ProfileScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [reminders, setReminders] = useState<ReminderPreference | null>(null);
   const [savingReminder, setSavingReminder] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState<{ field: ReminderTimeField; label: string } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -134,26 +212,15 @@ export function ProfileScreen({ navigation }: Props) {
     void updateReminder({ [field]: value } as Partial<ReminderPreference>);
   }, [updateReminder]);
 
-  const cycleJournalTime = useCallback(() => {
-    if (!reminders) return;
-    const options = ['19:00', '20:00', '21:00'];
-    const next = options[(options.indexOf(reminders.journal_time) + 1) % options.length] ?? options[0];
-    void updateReminder({ journal_time: next });
-  }, [reminders, updateReminder]);
+  const openTimePicker = useCallback((field: ReminderTimeField, label: string) => {
+    setTimePickerTarget({ field, label });
+  }, []);
 
-  const cycleMoodTime = useCallback(() => {
-    if (!reminders) return;
-    const options = ['08:00', '09:00', '10:00'];
-    const next = options[(options.indexOf(reminders.mood_checkin_time) + 1) % options.length] ?? options[0];
-    void updateReminder({ mood_checkin_time: next });
-  }, [reminders, updateReminder]);
-
-  const cycleQuizTime = useCallback(() => {
-    if (!reminders) return;
-    const options = ['17:00', '18:00', '19:00'];
-    const next = options[(options.indexOf(reminders.ai_quiz_time) + 1) % options.length] ?? options[0];
-    void updateReminder({ ai_quiz_time: next });
-  }, [reminders, updateReminder]);
+  const saveReminderTime = useCallback((time: string) => {
+    if (!timePickerTarget) return;
+    void updateReminder({ [timePickerTarget.field]: time } as Partial<ReminderPreference>);
+    setTimePickerTarget(null);
+  }, [timePickerTarget, updateReminder]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -254,7 +321,7 @@ export function ProfileScreen({ navigation }: Props) {
                     enabled={reminders.journal_enabled}
                     disabled={savingReminder}
                     onPress={() => toggleReminder('journal_enabled', !reminders.journal_enabled)}
-                    onTimePress={cycleJournalTime}
+                    onTimePress={() => openTimePicker('journal_time', 'Daily journal time')}
                   />
                   <View style={styles.divider} />
                   <ReminderRow
@@ -264,7 +331,7 @@ export function ProfileScreen({ navigation }: Props) {
                     enabled={reminders.mood_checkin_enabled}
                     disabled={savingReminder}
                     onPress={() => toggleReminder('mood_checkin_enabled', !reminders.mood_checkin_enabled)}
-                    onTimePress={cycleMoodTime}
+                    onTimePress={() => openTimePicker('mood_checkin_time', 'Mood check-in time')}
                   />
                   <View style={styles.divider} />
                   <ReminderRow
@@ -274,7 +341,7 @@ export function ProfileScreen({ navigation }: Props) {
                     enabled={reminders.ai_quiz_enabled}
                     disabled={savingReminder}
                     onPress={() => toggleReminder('ai_quiz_enabled', !reminders.ai_quiz_enabled)}
-                    onTimePress={cycleQuizTime}
+                    onTimePress={() => openTimePicker('ai_quiz_time', 'AI self-check time')}
                   />
                 </View>
                 <Text style={styles.reminderHint}>
@@ -290,6 +357,13 @@ export function ProfileScreen({ navigation }: Props) {
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>
       </ScrollView>
+      <TimePickerModal
+        visible={Boolean(timePickerTarget && reminders)}
+        value={timePickerTarget && reminders ? reminders[timePickerTarget.field] : '09:00'}
+        title={timePickerTarget?.label ?? 'Reminder time'}
+        onCancel={() => setTimePickerTarget(null)}
+        onSelect={saveReminderTime}
+      />
     </SafeAreaView>
   );
 }
@@ -383,6 +457,34 @@ const styles = StyleSheet.create({
   toggleOff: { backgroundColor: '#EEF2F7' },
   toggleText: { color: colors.textMuted, fontSize: 12, fontWeight: '900' },
   toggleTextOn: { color: '#fff' },
+  timeModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  timeModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 18,
+  },
+  timeModalTitle: { fontSize: 18, fontWeight: '900', color: colors.text, textAlign: 'center' },
+  timeModalValue: { fontSize: 32, fontWeight: '900', color: colors.coral, textAlign: 'center', marginVertical: 12 },
+  timePickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 220, gap: 10 },
+  timeColumn: { flex: 1, maxHeight: 220 },
+  timeSeparator: { fontSize: 28, fontWeight: '900', color: colors.textMuted },
+  timeOption: { paddingVertical: 10, borderRadius: 14, alignItems: 'center', marginVertical: 2 },
+  timeOptionActive: { backgroundColor: '#FFF3F1' },
+  timeOptionText: { fontSize: 16, fontWeight: '800', color: colors.textMuted },
+  timeOptionTextActive: { color: colors.coral },
+  timeModalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  timeCancelBtn: { flex: 1, paddingVertical: 13, borderRadius: 16, alignItems: 'center', backgroundColor: '#EEF2F7' },
+  timeCancelText: { color: colors.textMuted, fontWeight: '900' },
+  timeSaveBtn: { flex: 1, paddingVertical: 13, borderRadius: 16, alignItems: 'center', backgroundColor: colors.coral },
+  timeSaveText: { color: '#fff', fontWeight: '900' },
   signOutBtn: {
     marginTop: 12,
     backgroundColor: colors.coral,

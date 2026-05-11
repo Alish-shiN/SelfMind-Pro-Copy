@@ -12,6 +12,8 @@ class JournalBase(BaseModel):
     entry_date: date | None = None
     tags: list[str] | None = []
     is_private: bool = True
+    push_notification_enabled: bool = False
+    notification_title: str | None = Field(default=None, max_length=200)
 
 
 class JournalCreate(JournalBase):
@@ -24,6 +26,8 @@ class JournalUpdate(BaseModel):
     mood_score: int | None = Field(default=None, ge=1, le=10)
     tags: list[str] | None = None
     is_private: bool | None = None
+    push_notification_enabled: bool | None = None
+    notification_title: str | None = Field(default=None, max_length=200)
 
 
 class JournalResponse(BaseModel):
@@ -34,6 +38,8 @@ class JournalResponse(BaseModel):
     mood_score: int
     tags: list[str] | None = None
     is_private: bool
+    push_notification_enabled: bool
+    notification_title: str | None
     created_at: datetime
     updated_at: datetime
 
