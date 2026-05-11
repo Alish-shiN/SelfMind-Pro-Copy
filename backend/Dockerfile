@@ -19,6 +19,9 @@ COPY app ./app
 
 EXPOSE 8000
 
-# Runs migrations then starts API
-CMD ["bash", "-lc", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT:-8000}/health" || exit 1
+
+# Runs migrations then starts API. Cloud hosts usually inject PORT.
+CMD ["bash", "-lc", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 
