@@ -164,6 +164,8 @@ import { AiChatScreen } from '../screens/AiChatScreen';
 import { AiQuizScreen } from '../screens/AiQuizScreen';
 import { CommunityScreen } from '../screens/CommunityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { AdminPanelScreen } from '../screens/AdminPanelScreen';
+import { getCurrentUser } from '../api/user';
 import { colors } from '../theme/colors';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -191,6 +193,23 @@ function HomeStackNavigator() {
 }
 
 function MainTabsNavigator() {
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const user = await getCurrentUser();
+        if (!cancelled) setRole(user.role);
+      } catch {
+        if (!cancelled) setRole(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const showAdminPanel = role === 'admin' || role === 'moderator';
+
   return (
     <Tab.Navigator
       id="MainTabs"
@@ -234,6 +253,17 @@ function MainTabsNavigator() {
           ),
         }}
       />
+      {showAdminPanel ? (
+        <Tab.Screen
+          name="Admin"
+          component={AdminPanelScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="shield-checkmark-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      ) : null}
     </Tab.Navigator>
   );
 }

@@ -18,6 +18,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { ApiError } from '../api/client';
 import { getCurrentUser } from '../api/user';
 import type { UserResponse } from '../api/auth';
+import { getReminderPreferences, ReminderPreference, updateReminderPreferences } from '../api/reminders';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -30,18 +31,57 @@ function formatJoined(iso: string) {
   }
 }
 
+
+function ReminderRow({ icon, label, value, enabled, disabled, onPress, onTimePress }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  enabled: boolean;
+  disabled: boolean;
+  onPress: () => void;
+  onTimePress?: () => void;
+}) {
+  return (
+    <View style={styles.infoRow}>
+      <Ionicons name={icon} size={20} color={colors.coral} />
+      <View style={styles.infoTextWrap}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{enabled ? value : 'Off'}</Text>
+      </View>
+      {onTimePress && enabled ? (
+        <Pressable style={styles.timePill} onPress={onTimePress} disabled={disabled}>
+          <Text style={styles.timePillText}>{value}</Text>
+        </Pressable>
+      ) : null}
+      <Pressable
+        style={[styles.togglePill, enabled ? styles.toggleOn : styles.toggleOff, disabled && { opacity: 0.5 }]}
+        onPress={onPress}
+        disabled={disabled}
+      >
+        <Text style={[styles.toggleText, enabled && styles.toggleTextOn]}>{enabled ? 'On' : 'Off'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function ProfileScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reminders, setReminders] = useState<ReminderPreference | null>(null);
+  const [savingReminder, setSavingReminder] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
-      const u = await getCurrentUser();
+      const [u, reminderPrefs] = await Promise.all([
+        getCurrentUser(),
+        getReminderPreferences(),
+      ]);
       setUser(u);
+      setReminders(reminderPrefs);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         await signOut();
@@ -77,6 +117,43 @@ export function ProfileScreen({ navigation }: Props) {
         .slice(0, 2)
         .toUpperCase()
     : '?';
+
+  const updateReminder = useCallback(async (payload: Partial<ReminderPreference>) => {
+    setSavingReminder(true);
+    try {
+      const updated = await updateReminderPreferences(payload);
+      setReminders(updated);
+    } catch (e) {
+      Alert.alert('Reminder error', e instanceof ApiError ? e.message : 'Could not update reminders.');
+    } finally {
+      setSavingReminder(false);
+    }
+  }, []);
+
+  const toggleReminder = useCallback((field: keyof ReminderPreference, value: boolean) => {
+    void updateReminder({ [field]: value } as Partial<ReminderPreference>);
+  }, [updateReminder]);
+
+  const cycleJournalTime = useCallback(() => {
+    if (!reminders) return;
+    const options = ['19:00', '20:00', '21:00'];
+    const next = options[(options.indexOf(reminders.journal_time) + 1) % options.length] ?? options[0];
+    void updateReminder({ journal_time: next });
+  }, [reminders, updateReminder]);
+
+  const cycleMoodTime = useCallback(() => {
+    if (!reminders) return;
+    const options = ['08:00', '09:00', '10:00'];
+    const next = options[(options.indexOf(reminders.mood_checkin_time) + 1) % options.length] ?? options[0];
+    void updateReminder({ mood_checkin_time: next });
+  }, [reminders, updateReminder]);
+
+  const cycleQuizTime = useCallback(() => {
+    if (!reminders) return;
+    const options = ['17:00', '18:00', '19:00'];
+    const next = options[(options.indexOf(reminders.ai_quiz_time) + 1) % options.length] ?? options[0];
+    void updateReminder({ ai_quiz_time: next });
+  }, [reminders, updateReminder]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -156,6 +233,55 @@ export function ProfileScreen({ navigation }: Props) {
                 </View>
               </View>
             </View>
+
+            {reminders ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Reminders</Text>
+                <View style={styles.infoCard}>
+                  <ReminderRow
+                    icon="notifications-outline"
+                    label="All reminders"
+                    value={reminders.reminders_enabled ? 'Enabled' : 'Paused'}
+                    enabled={reminders.reminders_enabled}
+                    disabled={savingReminder}
+                    onPress={() => toggleReminder('reminders_enabled', !reminders.reminders_enabled)}
+                  />
+                  <View style={styles.divider} />
+                  <ReminderRow
+                    icon="journal-outline"
+                    label="Daily journal"
+                    value={reminders.journal_time}
+                    enabled={reminders.journal_enabled}
+                    disabled={savingReminder}
+                    onPress={() => toggleReminder('journal_enabled', !reminders.journal_enabled)}
+                    onTimePress={cycleJournalTime}
+                  />
+                  <View style={styles.divider} />
+                  <ReminderRow
+                    icon="happy-outline"
+                    label="Mood check-in"
+                    value={reminders.mood_checkin_time}
+                    enabled={reminders.mood_checkin_enabled}
+                    disabled={savingReminder}
+                    onPress={() => toggleReminder('mood_checkin_enabled', !reminders.mood_checkin_enabled)}
+                    onTimePress={cycleMoodTime}
+                  />
+                  <View style={styles.divider} />
+                  <ReminderRow
+                    icon="help-circle-outline"
+                    label="AI self-check"
+                    value={reminders.ai_quiz_time}
+                    enabled={reminders.ai_quiz_enabled}
+                    disabled={savingReminder}
+                    onPress={() => toggleReminder('ai_quiz_enabled', !reminders.ai_quiz_enabled)}
+                    onTimePress={cycleQuizTime}
+                  />
+                </View>
+                <Text style={styles.reminderHint}>
+                  These preferences sync with the backend and are ready for local or push notification scheduling.
+                </Text>
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -249,6 +375,14 @@ const styles = StyleSheet.create({
   infoTextWrap: { flex: 1 },
   infoLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
   infoValue: { fontSize: 15, fontWeight: '700', color: colors.text },
+  reminderHint: { fontSize: 12, color: colors.textMuted, fontWeight: '600', marginTop: 8, marginLeft: 4, lineHeight: 17 },
+  timePill: { backgroundColor: '#FFF3F1', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  timePillText: { color: colors.coral, fontWeight: '900', fontSize: 12 },
+  togglePill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, minWidth: 48, alignItems: 'center' },
+  toggleOn: { backgroundColor: colors.coral },
+  toggleOff: { backgroundColor: '#EEF2F7' },
+  toggleText: { color: colors.textMuted, fontSize: 12, fontWeight: '900' },
+  toggleTextOn: { color: '#fff' },
   signOutBtn: {
     marginTop: 12,
     backgroundColor: colors.coral,
