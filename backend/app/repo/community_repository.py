@@ -23,6 +23,7 @@ class CommunityRepository:
         return (
             self.db.query(CommunityPost)
             .options(joinedload(CommunityPost.user), joinedload(CommunityPost.comments))
+            .filter(CommunityPost.moderation_status == "visible")
             .order_by(CommunityPost.created_at.desc())
             .offset(offset)
             .limit(limit)
@@ -73,7 +74,10 @@ class CommunityRepository:
         return (
             self.db.query(CommunityComment)
             .options(joinedload(CommunityComment.user))
-            .filter(CommunityComment.post_id == post_id)
+            .filter(
+                CommunityComment.post_id == post_id,
+                CommunityComment.moderation_status == "visible",
+            )
             .order_by(CommunityComment.created_at.asc())
             .all()
         )
