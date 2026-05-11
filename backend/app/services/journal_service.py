@@ -21,6 +21,8 @@ class JournalService:
             entry_date=payload.entry_date,
             tags=payload.tags,
             is_private=payload.is_private,
+            push_notification_enabled=payload.push_notification_enabled,
+            notification_title=payload.notification_title,
         )
 
         self.analysis_service.generate_for_entry(entry.id)

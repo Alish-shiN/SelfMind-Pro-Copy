@@ -29,6 +29,8 @@ type JournalEntry = {
   mood_score: number;
   tags: string[] | null;
   is_private: boolean;
+  push_notification_enabled: boolean;
+  notification_title: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,6 +54,8 @@ const createEntry = (payload: {
   title: string; content: string; mood_score: number;
   tags: string[];
   is_private: boolean;
+  push_notification_enabled?: boolean;
+  notification_title?: string | null;
   entry_date?: string;
 }) =>
   apiFetch<JournalEntry>('/journal/', {
@@ -113,20 +117,21 @@ function NewEntryModal({
   onClose,
   onCreated,
   initialEntryDate,
-  initialDiaryType,
+  initialNotificationEnabled,
 }: {
   visible: boolean;
   onClose: () => void;
   onCreated: () => void;
   initialEntryDate?: string;
-  initialDiaryType?: string;
+  initialNotificationEnabled?: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [moodScore, setMoodScore] = useState(5);
   const [tagsRaw, setTagsRaw] = useState('');
   const [isPrivate, setIsPrivate] = useState(true);
-  const [diaryType, setDiaryType] = useState<string>(initialDiaryType ?? 'journal');
+  const [pushNotificationEnabled, setPushNotificationEnabled] = useState(Boolean(initialNotificationEnabled));
+  const [notificationTitle, setNotificationTitle] = useState('');
   const [loading, setLoading] = useState(false);
 
   const reset = () => {
@@ -135,7 +140,8 @@ function NewEntryModal({
     setMoodScore(5);
     setTagsRaw('');
     setIsPrivate(true);
-    setDiaryType(initialDiaryType ?? 'journal');
+    setPushNotificationEnabled(Boolean(initialNotificationEnabled));
+    setNotificationTitle('');
   };
 
   const submit = async () => {
@@ -145,9 +151,10 @@ function NewEntryModal({
     }
     setLoading(true);
     try {
-      const diaryTag = (diaryType || 'journal').toLowerCase();
-      const userTags = tagsRaw.split(',').map((t) => t.trim()).filter(Boolean);
-      const tags = Array.from(new Set([diaryTag, ...userTags]));
+      const tags = tagsRaw.split(',').map((t) => t.trim()).filter(Boolean);
+      const notificationTitleValue = pushNotificationEnabled
+        ? (notificationTitle.trim() || title.trim())
+        : null;
 
       await createEntry({
         title: title.trim(),
@@ -155,6 +162,8 @@ function NewEntryModal({
         mood_score: moodScore,
         tags,
         is_private: isPrivate,
+        push_notification_enabled: pushNotificationEnabled,
+        notification_title: notificationTitleValue,
         entry_date: initialEntryDate,
       });
       reset();
@@ -210,33 +219,37 @@ function NewEntryModal({
 
             <MoodPicker value={moodScore} onChange={setMoodScore} />
 
-            <View style={neStyles.typeWrap}>
-              <Text style={neStyles.typeLabel}>Diary type</Text>
-              <View style={neStyles.typeRow}>
-                {[
-                  { id: 'journal', label: 'Journal' },
-                  { id: 'notion', label: 'Notion' },
-                  { id: 'etc', label: 'Etc' },
-                ].map((t) => (
-                  <Pressable
-                    key={t.id}
-                    style={[
-                      neStyles.typeBtn,
-                      diaryType === t.id && neStyles.typeBtnOn,
-                    ]}
-                    onPress={() => setDiaryType(t.id)}
-                  >
-                    <Text
-                      style={[
-                        neStyles.typeBtnText,
-                        diaryType === t.id && neStyles.typeBtnTextOn,
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+            <View style={neStyles.notificationCard}>
+              <Pressable
+                style={neStyles.notificationRow}
+                onPress={() => setPushNotificationEnabled((value) => !value)}
+              >
+                <Ionicons name="notifications-outline" size={20} color={colors.coral} />
+                <View style={neStyles.notificationTextWrap}>
+                  <Text style={neStyles.notificationLabel}>Push notification</Text>
+                  <Text style={neStyles.notificationHint}>
+                    {pushNotificationEnabled
+                      ? 'Reminder will use your journal reminder time.'
+                      : 'No notification for this entry.'}
+                  </Text>
+                </View>
+                <View style={[neStyles.toggle, pushNotificationEnabled && neStyles.toggleOn]}>
+                  <View style={[neStyles.toggleThumb, pushNotificationEnabled && neStyles.toggleThumbOn]} />
+                </View>
+              </Pressable>
+
+              {pushNotificationEnabled ? (
+                <TextInput
+                  style={neStyles.notificationTitleInput}
+                  placeholder="Notification title"
+                  placeholderTextColor={colors.textPlaceholder}
+                  selectionColor={colors.coral}
+                  cursorColor={colors.text}
+                  value={notificationTitle}
+                  onChangeText={setNotificationTitle}
+                  maxLength={200}
+                />
+              ) : null}
             </View>
 
             <TextInput
@@ -316,29 +329,29 @@ const neStyles = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 16,
     padding: 14, lineHeight: 22, marginBottom: 16,
   },
-  typeWrap: { marginBottom: 16 },
-  typeLabel: { fontSize: 13, color: colors.textMuted, marginBottom: 10, fontWeight: '700' },
-  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
-  typeBtn: {
-    flex: 1,
+  notificationCard: {
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
     backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingVertical: 10,
+  },
+  notificationRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  typeBtnOn: {
-    borderColor: colors.coral,
-    backgroundColor: '#FFF0EE',
-  },
-  typeBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textMuted,
-  },
-  typeBtnTextOn: {
-    color: colors.coral,
+  notificationTextWrap: { flex: 1 },
+  notificationLabel: { fontSize: 14, color: colors.text, fontWeight: '800' },
+  notificationHint: { fontSize: 12, color: colors.textMuted, marginTop: 3, lineHeight: 16 },
+  notificationTitleInput: {
+    marginTop: 12,
+    fontSize: 14,
+    color: colors.text,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F2F7',
+    paddingTop: 12,
   },
   tagsInput: {
     fontSize: 14, color: colors.text,
@@ -516,7 +529,7 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'AiDiary'>;
 export function AIDiaryScreen({ route }: Props) {
   const { signOut } = useAuth();
   const initialEntryDate = route.params?.entryDate;
-  const initialDiaryType = route.params?.diaryType;
+  const initialNotificationEnabled = route.params?.notificationEnabled;
 
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -644,7 +657,7 @@ export function AIDiaryScreen({ route }: Props) {
         onClose={() => setShowNew(false)}
         onCreated={() => { setShowNew(false); load(); }}
         initialEntryDate={initialEntryDate}
-        initialDiaryType={initialDiaryType}
+        initialNotificationEnabled={initialNotificationEnabled}
       />
       {selected && (
         <EntryDetailModal
