@@ -42,8 +42,10 @@ class MoodAnalyticsPersonalizationContext(BaseModel):
     summary: dict
     recent_mood_history: list[dict]
     streaks: dict
+    journaling_frequency: dict
     journaling_frequency_30_entries_window: dict
     top_emotions: list[dict]
+    correlations: list[dict] = Field(default_factory=list)
 
 
 class AIPersonalizationInsightsResponse(BaseModel):
@@ -53,9 +55,9 @@ class AIPersonalizationInsightsResponse(BaseModel):
     user_preferences: PersonalizationUserPreferences
     mood_analytics_context: MoodAnalyticsPersonalizationContext
     weekly_summaries: list[WeeklySummary]
-    mood_trends_explanation: str | None = None
+    mood_trend_explanation: str | None = None
     adaptive_prompts: list[str]
     journaling_suggestions: list[str]
     follow_up_questions: list[str]
     pattern_reflections: list[str]
-    insights_timeline: list[AIInsightTimelineItem]
+    ai_insights_timeline: list[AIInsightTimelineItem]
