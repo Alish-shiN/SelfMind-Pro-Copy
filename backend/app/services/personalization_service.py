@@ -51,6 +51,11 @@ DEFAULT_PRIVACY_PREFERENCES = {
     "journal_private_default": True,
     "anonymous_community_default": False,
     "share_ai_insights": False,
+    "community_profile_visibility": "members",
+    "ai_processing_consent": False,
+    "privacy_notice_accepted": False,
+    "privacy_notice_version": None,
+    "privacy_notice_accepted_at": None,
 }
 
 

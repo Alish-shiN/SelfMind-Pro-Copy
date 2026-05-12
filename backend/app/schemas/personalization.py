@@ -26,6 +26,11 @@ class PrivacyPreferences(BaseModel):
     journal_private_default: bool = True
     anonymous_community_default: bool = False
     share_ai_insights: bool = False
+    community_profile_visibility: str = "members"
+    ai_processing_consent: bool = False
+    privacy_notice_accepted: bool = False
+    privacy_notice_version: str | None = None
+    privacy_notice_accepted_at: str | None = None
 
 
 class PersonalizationUserPreferences(BaseModel):

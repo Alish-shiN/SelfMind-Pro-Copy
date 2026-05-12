@@ -18,11 +18,17 @@ import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
 import { ApiError } from '../api/client';
 import {
+  acceptPrivacyNotice,
   AITone,
+  CommunityProfileVisibility,
+  deleteAccount as deleteUserAccount,
+  exportPersonalData,
   getCurrentUser,
+  getPrivacyCenter,
   getUserPreferences,
   PreferredReflectionFormat,
   ReminderFrequency,
+  PrivacyCenterResponse,
   updateUserPreferences,
   UserPreferences,
 } from '../api/user';
@@ -155,6 +161,7 @@ const GOAL_OPTIONS = ['reduce_stress', 'understand_mood', 'build_routine', 'prep
 const FORMAT_OPTIONS: PreferredReflectionFormat[] = ['diary', 'chat', 'quiz'];
 const FREQUENCY_OPTIONS: ReminderFrequency[] = ['daily', 'few_times_week', 'weekly', 'none'];
 const TONE_OPTIONS: AITone[] = ['calm', 'practical', 'motivating', 'reflective'];
+const COMMUNITY_VISIBILITY_OPTIONS: CommunityProfileVisibility[] = ['anonymous', 'members', 'public'];
 
 function PersonalizationPreferencesModal({
   visible,
@@ -225,7 +232,7 @@ function PersonalizationPreferencesModal({
           <Text style={styles.sectionLabel}>Privacy</Text>
           <PreferenceToggle label="Private diary entries by default" value={draft.privacy_preferences.journal_private_default} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, journal_private_default: !draft.privacy_preferences.journal_private_default } })} />
           <PreferenceToggle label="Anonymous community by default" value={draft.privacy_preferences.anonymous_community_default} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, anonymous_community_default: !draft.privacy_preferences.anonymous_community_default } })} />
-          <PreferenceToggle label="Share AI insights for personalization" value={draft.privacy_preferences.share_ai_insights} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, share_ai_insights: !draft.privacy_preferences.share_ai_insights } })} />
+          <PreferenceToggle label="Share AI insights for personalization" value={draft.privacy_preferences.share_ai_insights} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, share_ai_insights: !draft.privacy_preferences.share_ai_insights, ai_processing_consent: !draft.privacy_preferences.share_ai_insights } })} />
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -256,6 +263,146 @@ function PreferenceToggle({ label, value, onPress }: { label: string; value: boo
   );
 }
 
+
+function PrivacyCenterModal({ visible, preferences, onClose, onSaved, onDeleted }: {
+  visible: boolean;
+  preferences: UserPreferences | null;
+  onClose: () => void;
+  onSaved: (preferences: UserPreferences) => void;
+  onDeleted: () => Promise<void> | void;
+}) {
+  const [center, setCenter] = useState<PrivacyCenterResponse | null>(null);
+  const [draft, setDraft] = useState<UserPreferences | null>(preferences);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setDraft(preferences);
+    getPrivacyCenter()
+      .then((data) => {
+        setCenter(data);
+        setDraft(data.preferences);
+      })
+      .catch(() => setCenter(null));
+  }, [preferences, visible]);
+
+  if (!draft) return null;
+
+  const setPrivacy = (patch: Partial<UserPreferences['privacy_preferences']>) => {
+    setDraft((current) => current ? {
+      ...current,
+      privacy_preferences: { ...current.privacy_preferences, ...patch },
+    } : current);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const updated = await updateUserPreferences({ privacy_preferences: draft.privacy_preferences });
+      onSaved(updated);
+      Alert.alert('Privacy saved', 'Your privacy center settings have been updated.');
+    } catch (e) {
+      Alert.alert('Privacy error', e instanceof ApiError ? e.message : 'Could not save privacy settings.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const acceptNotice = async () => {
+    setSaving(true);
+    try {
+      const updated = await acceptPrivacyNotice();
+      setDraft(updated);
+      onSaved(updated);
+      Alert.alert('Notice accepted', 'Your consent was recorded.');
+    } catch (e) {
+      Alert.alert('Consent error', e instanceof ApiError ? e.message : 'Could not record consent.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportData = async () => {
+    setSaving(true);
+    try {
+      const data = await exportPersonalData();
+      Alert.alert('Personal data export ready', `Export sections: ${Object.keys(data).join(', ')}. Treat this as sensitive-like emotional data.`);
+    } catch (e) {
+      Alert.alert('Export error', e instanceof ApiError ? e.message : 'Could not export your data.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert('Delete account and data?', 'This permanently deletes your account and associated journals, AI data, reminders, and community content. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete all data',
+        style: 'destructive',
+        onPress: async () => {
+          setSaving(true);
+          try {
+            await deleteUserAccount();
+            await onDeleted();
+          } catch (e) {
+            Alert.alert('Delete error', e instanceof ApiError ? e.message : 'Could not delete your account.');
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView style={styles.prefModalSafe} edges={['top', 'bottom']}>
+        <View style={styles.prefModalTop}>
+          <Pressable onPress={onClose}><Text style={styles.timeCancelText}>Close</Text></Pressable>
+          <Text style={styles.title}>Privacy Center</Text>
+          <Pressable onPress={save} disabled={saving}>
+            {saving ? <ActivityIndicator color={colors.coral} /> : <Text style={styles.prefSaveText}>Save</Text>}
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.prefModalBody}>
+          <View style={styles.privacyNoticeCard}>
+            <Ionicons name="shield-checkmark-outline" size={24} color={colors.coral} />
+            <Text style={styles.privacyTitle}>{center?.notice.title ?? 'SelfMind Pro Privacy Center'}</Text>
+            <Text style={styles.privacyText}>{center?.notice.summary ?? 'We treat emotional data as sensitive-like data.'}</Text>
+            <Text style={styles.privacyText}>{center?.notice.emotional_data_notice ?? 'Journal entries, mood scores, AI reflections, and community activity can reveal emotional patterns and should be protected.'}</Text>
+          </View>
+
+          <Text style={styles.sectionLabel}>Entry privacy</Text>
+          <PreferenceToggle label="New entries private by default" value={draft.privacy_preferences.journal_private_default} onPress={() => setPrivacy({ journal_private_default: !draft.privacy_preferences.journal_private_default })} />
+          <PreferenceToggle label="Community posts anonymous by default" value={draft.privacy_preferences.anonymous_community_default} onPress={() => setPrivacy({ anonymous_community_default: !draft.privacy_preferences.anonymous_community_default })} />
+          <PreferencePicker title="Community profile visibility" options={COMMUNITY_VISIBILITY_OPTIONS} value={draft.privacy_preferences.community_profile_visibility} onSelect={(value) => setPrivacy({ community_profile_visibility: value as CommunityProfileVisibility })} />
+
+          <Text style={styles.sectionLabel}>AI processing and storage</Text>
+          <PreferenceToggle label="Allow AI insights to personalize future support" value={draft.privacy_preferences.share_ai_insights} onPress={() => setPrivacy({ share_ai_insights: !draft.privacy_preferences.share_ai_insights, ai_processing_consent: !draft.privacy_preferences.share_ai_insights })} />
+          {(center?.notice.ai_processing ?? []).map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
+          {(center?.notice.stored_data ?? []).map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
+
+          <View style={styles.privacyActionsCard}>
+            <Pressable style={styles.privacyActionBtn} onPress={acceptNotice} disabled={saving}>
+              <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+              <Text style={styles.privacyActionText}>{draft.privacy_preferences.privacy_notice_accepted ? 'Re-accept privacy notice' : 'Accept privacy notice'}</Text>
+            </Pressable>
+            <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={exportData} disabled={saving}>
+              <Ionicons name="download-outline" size={18} color={colors.coral} />
+              <Text style={styles.secondaryActionText}>Export personal data</Text>
+            </Pressable>
+            <Pressable style={[styles.privacyActionBtn, styles.dangerActionBtn]} onPress={confirmDelete} disabled={saving}>
+              <Ionicons name="trash-outline" size={18} color="#fff" />
+              <Text style={styles.privacyActionText}>Delete account + all data</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
 export function ProfileScreen({ navigation }: Props) {
   const { signOut } = useAuth();
   const [user, setUser] = useState<UserResponse | null>(null);
@@ -264,6 +411,7 @@ export function ProfileScreen({ navigation }: Props) {
   const [reminders, setReminders] = useState<ReminderPreference | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [preferencesModalVisible, setPreferencesModalVisible] = useState(false);
+  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
   const [savingReminder, setSavingReminder] = useState(false);
   const [timePickerTarget, setTimePickerTarget] = useState<{ field: ReminderTimeField; label: string } | null>(null);
 
@@ -465,6 +613,44 @@ export function ProfileScreen({ navigation }: Props) {
               </View>
             ) : null}
 
+
+            {preferences ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>Privacy Center</Text>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="lock-closed-outline" size={20} color={colors.coral} />
+                    <View style={styles.infoTextWrap}>
+                      <Text style={styles.infoLabel}>Entry default</Text>
+                      <Text style={styles.infoValue}>{preferences.privacy_preferences.journal_private_default ? 'Private journal entries' : 'Public journal entries'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.infoRow}>
+                    <Ionicons name="people-outline" size={20} color={colors.coral} />
+                    <View style={styles.infoTextWrap}>
+                      <Text style={styles.infoLabel}>Community visibility</Text>
+                      <Text style={styles.infoValue}>{preferences.privacy_preferences.community_profile_visibility}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                  <View style={styles.infoRow}>
+                    <Ionicons name="hardware-chip-outline" size={20} color={colors.coral} />
+                    <View style={styles.infoTextWrap}>
+                      <Text style={styles.infoLabel}>AI personalization consent</Text>
+                      <Text style={styles.infoValue}>{preferences.privacy_preferences.ai_processing_consent ? 'Enabled' : 'Not enabled'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                  <Pressable style={styles.editPrefsRow} onPress={() => setPrivacyModalVisible(true)}>
+                    <Text style={styles.editPrefsText}>Open privacy center</Text>
+                    <Ionicons name="chevron-forward" size={18} color={colors.coral} />
+                  </Pressable>
+                </View>
+                <Text style={styles.reminderHint}>Emotional data is treated as sensitive-like data. Review what AI processes, export your data, or delete your account here.</Text>
+              </View>
+            ) : null}
+
             {reminders ? (
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Reminders</Text>
@@ -526,6 +712,13 @@ export function ProfileScreen({ navigation }: Props) {
         preferences={preferences}
         onClose={() => setPreferencesModalVisible(false)}
         onSaved={setPreferences}
+      />
+      <PrivacyCenterModal
+        visible={privacyModalVisible}
+        preferences={preferences}
+        onClose={() => setPrivacyModalVisible(false)}
+        onSaved={setPreferences}
+        onDeleted={signOut}
       />
       <TimePickerModal
         visible={Boolean(timePickerTarget && reminders)}
@@ -689,6 +882,16 @@ const styles = StyleSheet.create({
   prefChipOn: { backgroundColor: '#FFF3F1', borderColor: colors.coral },
   prefChipText: { color: colors.textMuted, fontWeight: '800', textTransform: 'capitalize' },
   prefChipTextOn: { color: colors.coral },
+  privacyNoticeCard: { backgroundColor: colors.white, borderRadius: 18, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: '#E8ECF4', gap: 8 },
+  privacyTitle: { fontSize: 18, fontWeight: '900', color: colors.text },
+  privacyText: { fontSize: 13, color: colors.textMuted, lineHeight: 19, fontWeight: '600' },
+  bulletText: { fontSize: 13, color: colors.textMuted, lineHeight: 19, marginBottom: 6, fontWeight: '600' },
+  privacyActionsCard: { gap: 10, marginTop: 18 },
+  privacyActionBtn: { backgroundColor: colors.coral, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  privacyActionText: { color: '#fff', fontWeight: '900' },
+  secondaryActionBtn: { backgroundColor: '#FFF3F1', borderWidth: 1, borderColor: colors.coral },
+  secondaryActionText: { color: colors.coral, fontWeight: '900' },
+  dangerActionBtn: { backgroundColor: '#B91C1C' },
   prefToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -318,10 +318,7 @@ class CommunityService:
             )
 
     def _serialize_post(self, post):
-        author = {
-            "id": None if post.is_anonymous else post.user.id,
-            "username": "Anonymous" if post.is_anonymous else post.user.username,
-        }
+        author = self._serialize_author(post.user, post.is_anonymous)
         comments = post.comments or []
         return {
             "id": post.id,
@@ -344,10 +341,7 @@ class CommunityService:
         }
 
     def _serialize_comment(self, comment):
-        author = {
-            "id": None if comment.is_anonymous else comment.user.id,
-            "username": "Anonymous" if comment.is_anonymous else comment.user.username,
-        }
+        author = self._serialize_author(comment.user, comment.is_anonymous)
         return {
             "id": comment.id,
             "post_id": comment.post_id,
@@ -361,6 +355,13 @@ class CommunityService:
             "created_at": comment.created_at,
             "updated_at": comment.updated_at,
         }
+
+    def _serialize_author(self, user: User, is_anonymous: bool) -> dict:
+        privacy = user.privacy_preferences or {}
+        hide_profile = privacy.get("community_profile_visibility") == "anonymous"
+        if is_anonymous or hide_profile:
+            return {"id": None, "username": "Anonymous"}
+        return {"id": user.id, "username": user.username}
 
     def _serialize_queue_item(self, item: dict) -> dict:
         obj = item["obj"]
