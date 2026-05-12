@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.schemas.analytics import (
     JournalAnalyticsResponse,
+    MoodAnalyticsResponse,
     JournalRecentEntry,
     JournalStreakResponse,
 )
@@ -22,6 +25,24 @@ def get_journal_analytics(
     current_user: User = Depends(get_current_user),
 ):
     return AnalyticsService(db).get_journal_analytics(current_user)
+
+
+@router.get("/mood", response_model=MoodAnalyticsResponse)
+def get_mood_analytics(
+    period: str = Query(default="30d", pattern="^(7d|30d|90d|6m|1y|custom)$"),
+    granularity: str = Query(default="day", pattern="^(day|week|month)$"),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return AnalyticsService(db).get_mood_analytics(
+        current_user=current_user,
+        period=period,
+        granularity=granularity,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/journal/recent", response_model=list[JournalRecentEntry])
