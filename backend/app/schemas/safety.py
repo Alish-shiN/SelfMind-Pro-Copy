@@ -25,6 +25,7 @@ class SafetyFlagResponse(BaseModel):
 class SafetyCheckRequest(BaseModel):
     text: str = Field(min_length=1, max_length=10000)
     source_type: SafetySourceType = "manual_check"
+    mood_score: int | None = Field(default=None, ge=1, le=10)
 
 
 class SafetyCheckResponse(BaseModel):

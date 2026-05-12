@@ -46,6 +46,17 @@ The mobile app or future notification worker can store a device token:
 }
 ```
 
+## Mobile scheduling
+
+The mobile app schedules local notifications on the phone after reminder preferences are loaded or changed. Install the Expo notifications module before building the app:
+
+```bash
+cd mobile
+npx expo install expo-notifications
+```
+
+Profile reminder switches now save preferences to the cloud and reschedule local daily reminders on the current device. Journal entries can also store `notification_time`; when a user enables notification while creating an entry, the app asks for a time and schedules a one-time local reminder for that entry/day.
+
 ## Future worker flow
 
-A production worker can periodically query users by reminder time/timezone, build notification payloads from the stored settings, and send them through Expo/APNs/FCM. The current implementation provides the persisted settings and a `/due` helper endpoint for testing due reminder logic.
+A production worker can periodically query users by reminder time/timezone, build notification payloads from the stored settings, and send them through Expo/APNs/FCM. The current implementation provides persisted settings, local device scheduling, per-entry notification times, and a `/due` helper endpoint for testing server-side due reminder logic.

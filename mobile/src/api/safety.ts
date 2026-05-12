@@ -19,10 +19,10 @@ export function getCrisisResources() {
   return apiFetch<CrisisResource[]>('/safety/resources', { auth: false });
 }
 
-export function checkSafetyText(text: string) {
+export function checkSafetyText(text: string, moodScore?: number) {
   return apiFetch<SafetyCheckResponse>('/safety/check', {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ text, source_type: 'manual_check' }),
+    body: JSON.stringify({ text, source_type: 'manual_check', mood_score: moodScore }),
   });
 }

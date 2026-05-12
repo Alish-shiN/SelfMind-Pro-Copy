@@ -25,9 +25,10 @@ class JournalService:
             is_private=payload.is_private,
             push_notification_enabled=payload.push_notification_enabled,
             notification_title=payload.notification_title,
+            notification_time=payload.notification_time,
         )
 
-        self.safety_service.flag_if_needed(current_user, "journal_entry", entry.id, payload.content)
+        self.safety_service.flag_if_needed(current_user, "journal_entry", entry.id, payload.content, mood_score=payload.mood_score)
         self.analysis_service.generate_for_entry(entry.id)
         return entry
 
@@ -53,8 +54,14 @@ class JournalService:
 
         update_data = payload.model_dump(exclude_unset=True)
         updated_entry = self.repo.update(entry, update_data)
-        if payload.content is not None:
-            self.safety_service.flag_if_needed(current_user, "journal_entry", updated_entry.id, payload.content)
+        if payload.content is not None or payload.mood_score is not None:
+            self.safety_service.flag_if_needed(
+                current_user,
+                "journal_entry",
+                updated_entry.id,
+                payload.content if payload.content is not None else updated_entry.content,
+                mood_score=payload.mood_score if payload.mood_score is not None else updated_entry.mood_score,
+            )
 
         self.analysis_service.regenerate_for_entry(current_user, updated_entry.id)
 

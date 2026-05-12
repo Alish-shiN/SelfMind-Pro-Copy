@@ -12,7 +12,7 @@ The backend scans user-generated text from:
 - community comments;
 - AI quiz answers.
 
-When crisis keywords are detected, the backend stores a `safety_flags` row with source type, source id, severity, matched signals, and a short content excerpt.
+When crisis keywords are detected, the backend stores a `safety_flags` row with source type, source id, severity, matched signals, and a short content excerpt. Journal entries also pass mood score into the safety check, so mood scores of 1-2 can create a high/crisis flag even when the text does not contain explicit crisis keywords.
 
 ## User-facing endpoints
 
@@ -26,7 +26,7 @@ GET /api/v1/safety/flags/me
 
 ## Mobile behavior
 
-The mobile Home screen exposes a “Need immediate help?” card. The Safety screen shows emergency resources and a simple safety text check.
+The mobile Home screen exposes a “Need immediate help?” card. The Safety screen shows emergency resources, a short grounding plan, and a simple safety text check. When a journal entry has mood 1-2 or the text check returns high/crisis severity, the app prompts the user to open safety resources immediately after saving.
 
 ## Future production work
 

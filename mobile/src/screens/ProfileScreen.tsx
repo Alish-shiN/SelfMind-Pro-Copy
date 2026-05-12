@@ -20,6 +20,7 @@ import { ApiError } from '../api/client';
 import { getCurrentUser } from '../api/user';
 import type { UserResponse } from '../api/auth';
 import { getReminderPreferences, ReminderPreference, updateReminderPreferences } from '../api/reminders';
+import { scheduleReminderPreferences } from '../lib/notifications';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 type ReminderTimeField = 'journal_time' | 'mood_checkin_time' | 'ai_quiz_time';
@@ -160,6 +161,7 @@ export function ProfileScreen({ navigation }: Props) {
       ]);
       setUser(u);
       setReminders(reminderPrefs);
+      void scheduleReminderPreferences(reminderPrefs);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         await signOut();
@@ -201,6 +203,10 @@ export function ProfileScreen({ navigation }: Props) {
     try {
       const updated = await updateReminderPreferences(payload);
       setReminders(updated);
+      const scheduleResult = await scheduleReminderPreferences(updated);
+      if (scheduleResult.unavailableReason) {
+        Alert.alert('Local notifications not scheduled', scheduleResult.unavailableReason);
+      }
     } catch (e) {
       Alert.alert('Reminder error', e instanceof ApiError ? e.message : 'Could not update reminders.');
     } finally {
@@ -345,7 +351,7 @@ export function ProfileScreen({ navigation }: Props) {
                   />
                 </View>
                 <Text style={styles.reminderHint}>
-                  These preferences sync with the backend and are ready for local or push notification scheduling.
+                  Times are saved to the cloud and scheduled locally on this phone. Keep the app installed and allow notifications to receive them.
                 </Text>
               </View>
             ) : null}

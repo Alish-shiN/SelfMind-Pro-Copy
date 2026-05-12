@@ -22,6 +22,7 @@ class JournalEntry(TimestampMixin, Base):
     is_private: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     push_notification_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     notification_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    notification_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
 
     user = relationship("User", back_populates="journal_entries")
     analysis = relationship(

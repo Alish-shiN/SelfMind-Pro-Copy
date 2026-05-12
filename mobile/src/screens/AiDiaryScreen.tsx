@@ -16,6 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError, apiFetch } from '../api/client';
+import { checkSafetyText } from '../api/safety';
+import { scheduleJournalEntryReminder } from '../lib/notifications';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -31,6 +33,7 @@ type JournalEntry = {
   is_private: boolean;
   push_notification_enabled: boolean;
   notification_title: string | null;
+  notification_time: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -56,6 +59,7 @@ const createEntry = (payload: {
   is_private: boolean;
   push_notification_enabled?: boolean;
   notification_title?: string | null;
+  notification_time?: string | null;
   entry_date?: string;
 }) =>
   apiFetch<JournalEntry>('/journal/', {
@@ -111,17 +115,90 @@ const mpStyles = StyleSheet.create({
   numActive: { color: colors.coral, fontWeight: '700' },
 });
 
+
+function normalizeTime(value: string) {
+  const [hourRaw = '20', minuteRaw = '00'] = value.split(':');
+  const hour = Math.min(23, Math.max(0, Number(hourRaw) || 0));
+  const minute = Math.min(59, Math.max(0, Number(minuteRaw) || 0));
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function TimePickerModal({
+  visible,
+  value,
+  title,
+  onCancel,
+  onSelect,
+}: {
+  visible: boolean;
+  value: string;
+  title: string;
+  onCancel: () => void;
+  onSelect: (time: string) => void;
+}) {
+  const [draft, setDraft] = useState(normalizeTime(value));
+
+  useEffect(() => {
+    if (visible) setDraft(normalizeTime(value));
+  }, [value, visible]);
+
+  const [selectedHour, selectedMinute] = draft.split(':');
+  const hours = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
+  const minutes = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+
+  const setHour = (hour: string) => setDraft(`${hour}:${selectedMinute || '00'}`);
+  const setMinute = (minute: string) => setDraft(`${selectedHour || '20'}:${minute}`);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={neStyles.timeModalBackdrop}>
+        <View style={neStyles.timeModalCard}>
+          <Text style={neStyles.timeModalTitle}>{title}</Text>
+          <Text style={neStyles.timeModalValue}>{draft}</Text>
+          <View style={neStyles.timePickerRow}>
+            <ScrollView style={neStyles.timeColumn} showsVerticalScrollIndicator={false}>
+              {hours.map((hour) => (
+                <Pressable key={hour} style={[neStyles.timeOption, selectedHour === hour && neStyles.timeOptionActive]} onPress={() => setHour(hour)}>
+                  <Text style={[neStyles.timeOptionText, selectedHour === hour && neStyles.timeOptionTextActive]}>{hour}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Text style={neStyles.timeSeparator}>:</Text>
+            <ScrollView style={neStyles.timeColumn} showsVerticalScrollIndicator={false}>
+              {minutes.map((minute) => (
+                <Pressable key={minute} style={[neStyles.timeOption, selectedMinute === minute && neStyles.timeOptionActive]} onPress={() => setMinute(minute)}>
+                  <Text style={[neStyles.timeOptionText, selectedMinute === minute && neStyles.timeOptionTextActive]}>{minute}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+          <View style={neStyles.timeModalActions}>
+            <Pressable style={neStyles.timeCancelBtn} onPress={onCancel}>
+              <Text style={neStyles.timeCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable style={neStyles.timeSaveBtn} onPress={() => onSelect(draft)}>
+              <Text style={neStyles.timeSaveText}>Save time</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── New Entry Modal ──────────────────────────────────────────────────────────
 function NewEntryModal({
   visible,
   onClose,
   onCreated,
+  onSafetyNeeded,
   initialEntryDate,
   initialNotificationEnabled,
 }: {
   visible: boolean;
   onClose: () => void;
   onCreated: () => void;
+  onSafetyNeeded: () => void;
   initialEntryDate?: string;
   initialNotificationEnabled?: boolean;
 }) {
@@ -132,6 +209,8 @@ function NewEntryModal({
   const [isPrivate, setIsPrivate] = useState(true);
   const [pushNotificationEnabled, setPushNotificationEnabled] = useState(Boolean(initialNotificationEnabled));
   const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationTime, setNotificationTime] = useState('20:00');
+  const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const reset = () => {
@@ -142,6 +221,7 @@ function NewEntryModal({
     setIsPrivate(true);
     setPushNotificationEnabled(Boolean(initialNotificationEnabled));
     setNotificationTitle('');
+    setNotificationTime('20:00');
   };
 
   const submit = async () => {
@@ -156,7 +236,7 @@ function NewEntryModal({
         ? (notificationTitle.trim() || title.trim())
         : null;
 
-      await createEntry({
+      const created = await createEntry({
         title: title.trim(),
         content: content.trim(),
         mood_score: moodScore,
@@ -164,10 +244,35 @@ function NewEntryModal({
         is_private: isPrivate,
         push_notification_enabled: pushNotificationEnabled,
         notification_title: notificationTitleValue,
+        notification_time: pushNotificationEnabled ? notificationTime : null,
         entry_date: initialEntryDate,
       });
+
+      if (pushNotificationEnabled) {
+        const scheduleResult = await scheduleJournalEntryReminder({
+          entryId: created.id,
+          entryDate: initialEntryDate,
+          time: notificationTime,
+          title: notificationTitleValue || 'Journal reminder',
+        });
+        if (!scheduleResult.scheduled && scheduleResult.unavailableReason) {
+          Alert.alert('Notification not scheduled', scheduleResult.unavailableReason);
+        }
+      }
+
+      const safetyResult = await checkSafetyText(content.trim(), moodScore).catch(() => null);
       reset();
       onCreated();
+      if (moodScore <= 2 || safetyResult?.severity === 'high' || safetyResult?.severity === 'crisis') {
+        Alert.alert(
+          'Support is available',
+          'Your entry suggests you may be having a very difficult moment. Would you like to open immediate support resources?',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open safety resources', onPress: onSafetyNeeded },
+          ],
+        );
+      }
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Could not save entry.');
     } finally {
@@ -229,7 +334,7 @@ function NewEntryModal({
                   <Text style={neStyles.notificationLabel}>Push notification</Text>
                   <Text style={neStyles.notificationHint}>
                     {pushNotificationEnabled
-                      ? 'Reminder will use your journal reminder time.'
+                      ? `Reminder scheduled for ${notificationTime}.`
                       : 'No notification for this entry.'}
                   </Text>
                 </View>
@@ -239,18 +344,36 @@ function NewEntryModal({
               </Pressable>
 
               {pushNotificationEnabled ? (
-                <TextInput
-                  style={neStyles.notificationTitleInput}
-                  placeholder="Notification title"
-                  placeholderTextColor={colors.textPlaceholder}
-                  selectionColor={colors.coral}
-                  cursorColor={colors.text}
-                  value={notificationTitle}
-                  onChangeText={setNotificationTitle}
-                  maxLength={200}
-                />
+                <View style={neStyles.notificationDetails}>
+                  <Pressable style={neStyles.notificationTimeRow} onPress={() => setTimePickerVisible(true)}>
+                    <Ionicons name="time-outline" size={18} color={colors.coral} />
+                    <Text style={neStyles.notificationTimeLabel}>Notification time</Text>
+                    <Text style={neStyles.notificationTimeValue}>{notificationTime}</Text>
+                  </Pressable>
+                  <TextInput
+                    style={neStyles.notificationTitleInput}
+                    placeholder="Notification title"
+                    placeholderTextColor={colors.textPlaceholder}
+                    selectionColor={colors.coral}
+                    cursorColor={colors.text}
+                    value={notificationTitle}
+                    onChangeText={setNotificationTitle}
+                    maxLength={200}
+                  />
+                </View>
               ) : null}
             </View>
+
+            <TimePickerModal
+              visible={timePickerVisible}
+              value={notificationTime}
+              title="Journal notification time"
+              onCancel={() => setTimePickerVisible(false)}
+              onSelect={(time) => {
+                setNotificationTime(time);
+                setTimePickerVisible(false);
+              }}
+            />
 
             <TextInput
               style={neStyles.contentInput}
@@ -345,14 +468,47 @@ const neStyles = StyleSheet.create({
   notificationTextWrap: { flex: 1 },
   notificationLabel: { fontSize: 14, color: colors.text, fontWeight: '800' },
   notificationHint: { fontSize: 12, color: colors.textMuted, marginTop: 3, lineHeight: 16 },
-  notificationTitleInput: {
+  notificationDetails: {
     marginTop: 12,
-    fontSize: 14,
-    color: colors.text,
     borderTopWidth: 1,
     borderTopColor: '#F0F2F7',
     paddingTop: 12,
+    gap: 10,
   },
+  notificationTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  notificationTimeLabel: { flex: 1, color: colors.text, fontWeight: '800', fontSize: 13 },
+  notificationTimeValue: { color: colors.coral, fontWeight: '900', fontSize: 14 },
+  notificationTitleInput: {
+    fontSize: 14,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timeModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  timeModalCard: { width: '100%', maxWidth: 360, backgroundColor: colors.white, borderRadius: 24, padding: 18 },
+  timeModalTitle: { fontSize: 18, fontWeight: '900', color: colors.text, textAlign: 'center' },
+  timeModalValue: { fontSize: 32, fontWeight: '900', color: colors.coral, textAlign: 'center', marginVertical: 12 },
+  timePickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 220, gap: 10 },
+  timeColumn: { flex: 1, maxHeight: 220 },
+  timeSeparator: { fontSize: 28, fontWeight: '900', color: colors.textMuted },
+  timeOption: { paddingVertical: 10, borderRadius: 14, alignItems: 'center', marginVertical: 2 },
+  timeOptionActive: { backgroundColor: '#FFF3F1' },
+  timeOptionText: { fontSize: 16, fontWeight: '800', color: colors.textMuted },
+  timeOptionTextActive: { color: colors.coral },
+  timeModalActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  timeCancelBtn: { flex: 1, paddingVertical: 13, borderRadius: 16, alignItems: 'center', backgroundColor: '#EEF2F7' },
+  timeCancelText: { color: colors.textMuted, fontWeight: '900' },
+  timeSaveBtn: { flex: 1, paddingVertical: 13, borderRadius: 16, alignItems: 'center', backgroundColor: colors.coral },
+  timeSaveText: { color: '#fff', fontWeight: '900' },
   tagsInput: {
     fontSize: 14, color: colors.text,
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 999,
@@ -451,6 +607,15 @@ function EntryDetailModal({
             </View>
           )}
 
+          {entry.push_notification_enabled && entry.notification_time ? (
+            <View style={edStyles.notificationInfo}>
+              <Ionicons name="notifications-outline" size={16} color={colors.coral} />
+              <Text style={edStyles.notificationInfoText}>
+                Reminder set for {entry.notification_time}
+              </Text>
+            </View>
+          ) : null}
+
           <Text style={edStyles.content}>{entry.content}</Text>
 
           {/* Analysis section */}
@@ -503,6 +668,17 @@ const edStyles = StyleSheet.create({
     backgroundColor: colors.periwinkle, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
   },
   tagText: { fontSize: 12, color: colors.text },
+  notificationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3F1',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 18,
+  },
+  notificationInfoText: { color: colors.coral, fontSize: 13, fontWeight: '800' },
   content: { fontSize: 15, color: colors.text, lineHeight: 24, marginBottom: 28 },
   analysisSection: {},
   analysisSectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12 },
@@ -526,7 +702,7 @@ const MOOD_EMOJI_SMALL = ['', '😞', '😟', '😐', '🙂', '😊', '😄', '�
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'AiDiary'>;
 
-export function AIDiaryScreen({ route }: Props) {
+export function AIDiaryScreen({ route, navigation }: Props) {
   const { signOut } = useAuth();
   const initialEntryDate = route.params?.entryDate;
   const initialNotificationEnabled = route.params?.notificationEnabled;
@@ -656,6 +832,7 @@ export function AIDiaryScreen({ route }: Props) {
         visible={showNew}
         onClose={() => setShowNew(false)}
         onCreated={() => { setShowNew(false); load(); }}
+        onSafetyNeeded={() => navigation.navigate('Safety')}
         initialEntryDate={initialEntryDate}
         initialNotificationEnabled={initialNotificationEnabled}
       />

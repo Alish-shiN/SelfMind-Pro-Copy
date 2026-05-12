@@ -20,6 +20,7 @@ class JournalRepository:
         is_private: bool,
         push_notification_enabled: bool = False,
         notification_title: str | None = None,
+        notification_time: str | None = None,
     ) -> JournalEntry:
         created_at: datetime | None = None
         if entry_date is not None:
@@ -36,6 +37,7 @@ class JournalRepository:
             is_private=is_private,
             push_notification_enabled=push_notification_enabled,
             notification_title=notification_title,
+            notification_time=notification_time,
         )
         self.db.add(entry)
         self.db.commit()

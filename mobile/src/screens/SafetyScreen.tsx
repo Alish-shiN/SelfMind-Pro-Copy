@@ -93,6 +93,13 @@ export function SafetyScreen({ navigation }: Props) {
           </View>
         ))}
 
+        <View style={styles.groundingCard}>
+          <Text style={styles.groundingTitle}>Right now: 60-second safety step</Text>
+          <Text style={styles.groundingText}>1. Move away from anything you could use to hurt yourself.</Text>
+          <Text style={styles.groundingText}>2. Sit where another person can see you, or message someone: “Please stay with me.”</Text>
+          <Text style={styles.groundingText}>3. Take five slow breaths while you call or text a crisis line.</Text>
+        </View>
+
         <View style={styles.checkCard}>
           <Text style={styles.checkTitle}>Safety check</Text>
           <Text style={styles.checkHint}>Paste or write a message to see if it contains crisis keywords.</Text>
@@ -133,6 +140,9 @@ const styles = StyleSheet.create({
   resourceDescription: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 6 },
   resourceButton: { marginTop: 12, backgroundColor: colors.coral, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   resourceButtonText: { color: '#fff', fontWeight: '900' },
+  groundingCard: { backgroundColor: '#FEF3C7', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#FCD34D' },
+  groundingTitle: { fontSize: 16, fontWeight: '900', color: '#92400E', marginBottom: 8 },
+  groundingText: { color: '#78350F', fontSize: 13, lineHeight: 19, fontWeight: '700', marginTop: 4 },
   checkCard: { backgroundColor: colors.white, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#E8ECF4' },
   checkTitle: { fontSize: 16, fontWeight: '900', color: colors.text },
   checkHint: { color: colors.textMuted, fontSize: 13, marginTop: 4, lineHeight: 18 },
