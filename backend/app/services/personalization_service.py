@@ -46,6 +46,11 @@ SOCIAL_KEYWORDS = {
 
 STRESS_EMOTIONS = {"stress", "anxiety", "anger", "sadness"}
 POSITIVE_EMOTIONS = {"joy", "calm"}
+DEFAULT_PRIVACY_PREFERENCES = {
+    "journal_private_default": True,
+    "anonymous_community_default": False,
+    "share_ai_insights": False,
+}
 
 
 class PersonalizationService:
@@ -60,20 +65,22 @@ class PersonalizationService:
         recent_entries = self._get_recent_entries(current_user.id, limit=30)
         recent_analyses = self._get_recent_analyses(current_user.id, limit=20)
 
+        user_preferences = self._user_preferences(current_user)
+        mood_analytics_context = self._mood_analytics_context(
+            summary=summary,
+            entries=recent_entries,
+            analyses=recent_analyses,
+            user_id=current_user.id,
+        )
+
         return {
             "average_mood": summary.get("average_mood"),
             "total_entries": summary.get("total_entries"),
             "latest_emotion": (
                 latest_analysis.emotion_label if latest_analysis else None
             ),
-            "user_preferences": {
-                "emotional_goals": current_user.emotional_goals or [],
-                "preferred_reflection_format": current_user.preferred_reflection_format
-                or "diary",
-                "reminder_frequency": current_user.reminder_frequency or "none",
-                "privacy_preferences": current_user.privacy_preferences or {},
-                "ai_tone": current_user.ai_tone or "calm",
-            },
+            "user_preferences": user_preferences,
+            "mood_analytics_context": mood_analytics_context,
             "weekly_summaries": self._weekly_summaries(recent_entries),
             "mood_trends_explanation": self._mood_trends_explanation(recent_entries),
             "adaptive_prompts": self._adaptive_prompts(recent_entries, recent_analyses),
@@ -91,6 +98,58 @@ class PersonalizationService:
 
     def get_ai_insights(self, current_user: User) -> dict:
         return self.build_context(current_user)
+
+    def _user_preferences(self, current_user: User) -> dict:
+        privacy_preferences = {
+            **DEFAULT_PRIVACY_PREFERENCES,
+            **(current_user.privacy_preferences or {}),
+        }
+        return {
+            "emotional_goals": current_user.emotional_goals or [],
+            "preferred_reflection_format": current_user.preferred_reflection_format
+            or "diary",
+            "reminder_frequency": current_user.reminder_frequency or "none",
+            "privacy_preferences": privacy_preferences,
+            "ai_tone": current_user.ai_tone or "calm",
+            "onboarding_completed": bool(current_user.onboarding_completed),
+            "onboarding_skipped": bool(current_user.onboarding_skipped),
+        }
+
+    def _mood_analytics_context(
+        self,
+        summary: dict,
+        entries: list[JournalEntry],
+        analyses: list[JournalAnalysis],
+        user_id: int,
+    ) -> dict:
+        active_dates = self.analytics_repo.get_active_dates(user_id)
+        streaks = self.analytics_repo.calculate_streaks(active_dates)
+        recent_mood_history = [
+            {
+                "date": entry.created_at.date().isoformat(),
+                "mood_score": entry.mood_score,
+            }
+            for entry in sorted(entries, key=lambda item: item.created_at)[-14:]
+        ]
+        active_days = len({entry.created_at.date() for entry in entries})
+        return {
+            "summary": {
+                "total_entries": summary.get("total_entries") or 0,
+                "average_mood": summary.get("average_mood"),
+                "min_mood": summary.get("min_mood"),
+                "max_mood": summary.get("max_mood"),
+            },
+            "recent_mood_history": recent_mood_history,
+            "streaks": streaks,
+            "journaling_frequency_30_entries_window": {
+                "entries_count": len(entries),
+                "active_days": active_days,
+                "average_entries_per_active_day": (
+                    round(len(entries) / active_days, 2) if active_days else 0
+                ),
+            },
+            "top_emotions": self._top_emotions(analyses),
+        }
 
     def _get_recent_entries(self, user_id: int, limit: int) -> list[JournalEntry]:
         return (
@@ -337,6 +396,22 @@ class PersonalizationService:
             ):
                 count += 1
         return count
+
+    def _top_emotions(self, analyses: list[JournalAnalysis]) -> list[dict]:
+        counter = Counter(
+            analysis.emotion_label for analysis in analyses if analysis.emotion_label
+        )
+        total = sum(counter.values())
+        if total == 0:
+            return []
+        return [
+            {
+                "emotion_label": emotion,
+                "count": count,
+                "percentage": round((count / total) * 100, 2),
+            }
+            for emotion, count in counter.most_common(5)
+        ]
 
     def _dominant_stress_emotion(self, analyses: list[JournalAnalysis]) -> str | None:
         counter = Counter(
