@@ -9,7 +9,9 @@ from app.schemas.analytics import (
     JournalRecentEntry,
     JournalStreakResponse,
 )
+from app.schemas.personalization import AIPersonalizationInsightsResponse
 from app.services.analytics_service import AnalyticsService
+from app.services.personalization_service import PersonalizationService
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -37,3 +39,11 @@ def get_journal_streak(
     current_user: User = Depends(get_current_user),
 ):
     return AnalyticsService(db).get_streak(current_user)
+
+
+@router.get("/ai-insights", response_model=AIPersonalizationInsightsResponse)
+def get_ai_personalization_insights(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return PersonalizationService(db).get_ai_insights(current_user)
