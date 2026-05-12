@@ -2,21 +2,20 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.user import User
-from app.repo.analytics_repository import AnalyticsRepository
 from app.repo.chat_repository import ChatRepository
-from app.repo.dashboard_repository import DashboardRepository
 from app.schemas.chat import ChatMessageCreate, ChatSessionCreate
 from app.services.ai_chat_engine import AIChatEngine
+from app.services.personalization_service import PersonalizationService
 from app.services.safety_service import SafetyService
+
 
 class ChatService:
     def __init__(self, db: Session):
         self.chat_repo = ChatRepository(db)
-        self.analytics_repo = AnalyticsRepository(db)
-        self.dashboard_repo = DashboardRepository(db)
         self.engine = AIChatEngine()
+        self.personalization_service = PersonalizationService(db)
         self.safety_service = SafetyService(db)
-        
+
     def create_session(self, current_user: User, payload: ChatSessionCreate):
         return self.chat_repo.create_session(
             user_id=current_user.id,
@@ -30,8 +29,7 @@ class ChatService:
         session = self.chat_repo.get_session_by_id_and_user(session_id, current_user.id)
         if not session:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chat session not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found"
             )
 
         return {
@@ -39,12 +37,13 @@ class ChatService:
             "messages": session.messages,
         }
 
-    def send_message(self, current_user: User, session_id: int, payload: ChatMessageCreate):
+    def send_message(
+        self, current_user: User, session_id: int, payload: ChatMessageCreate
+    ):
         session = self.chat_repo.get_session_by_id_and_user(session_id, current_user.id)
         if not session:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chat session not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Chat session not found"
             )
 
         user_message = self.chat_repo.create_message(
@@ -53,7 +52,9 @@ class ChatService:
             content=payload.content,
         )
 
-        self.safety_service.flag_if_needed(current_user, "chat_message", user_message.id, payload.content)
+        self.safety_service.flag_if_needed(
+            current_user, "chat_message", user_message.id, payload.content
+        )
 
         context = self._build_context(current_user)
         assistant_reply = self.engine.generate_reply(
@@ -73,10 +74,4 @@ class ChatService:
         }
 
     def _build_context(self, current_user: User) -> dict:
-        summary = self.analytics_repo.get_summary(current_user.id)
-        latest_analysis = self.dashboard_repo.get_latest_analysis(current_user.id)
-
-        return {
-            "average_mood": summary.get("average_mood"),
-            "latest_emotion": latest_analysis.emotion_label if latest_analysis else None,
-        }
+        return self.personalization_service.build_context(current_user)
