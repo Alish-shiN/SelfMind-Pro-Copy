@@ -1,14 +1,17 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.roles import is_moderator_or_admin
 from app.models.user import User
 from app.repo.community_repository import CommunityRepository
 from app.schemas.community import CommunityCommentCreate, CommunityPostCreate
+from app.services.safety_service import SafetyService
 
 
 class CommunityService:
     def __init__(self, db: Session):
         self.repo = CommunityRepository(db)
+        self.safety_service = SafetyService(db)
 
     def create_post(self, current_user: User, payload: CommunityPostCreate):
         post = self.repo.create_post(
@@ -16,6 +19,7 @@ class CommunityService:
             content=payload.content,
             is_anonymous=payload.is_anonymous,
         )
+        self.safety_service.flag_if_needed(current_user, "community_post", post.id, payload.content)
         return self._serialize_post(post)
 
     def get_feed(self, limit: int = 20, offset: int = 0):
@@ -24,13 +28,17 @@ class CommunityService:
 
     def get_post_detail(self, post_id: int):
         post = self.repo.get_post_by_id(post_id)
-        if not post:
+        if not post or post.moderation_status != "visible":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Post not found"
             )
 
-        comments = [self._serialize_comment(comment) for comment in post.comments]
+        comments = [
+            self._serialize_comment(comment)
+            for comment in post.comments
+            if comment.moderation_status == "visible"
+        ]
 
         return {
             **self._serialize_post(post),
@@ -38,8 +46,8 @@ class CommunityService:
         }
 
     def delete_post(self, current_user: User, post_id: int):
-        post = self.repo.get_post_by_id_and_user(post_id, current_user.id)
-        if not post:
+        post = self.repo.get_post_by_id(post_id)
+        if not post or not self._can_manage_content(current_user, post.user_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Post not found or access denied"
@@ -50,7 +58,7 @@ class CommunityService:
 
     def create_comment(self, current_user: User, post_id: int, payload: CommunityCommentCreate):
         post = self.repo.get_post_by_id(post_id)
-        if not post:
+        if not post or post.moderation_status != "visible":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Post not found"
@@ -63,12 +71,14 @@ class CommunityService:
             is_anonymous=payload.is_anonymous,
         )
 
+        self.safety_service.flag_if_needed(current_user, "community_comment", comment.id, payload.content)
+
         comment = self.repo.get_comment_by_id(comment.id)
         return self._serialize_comment(comment)
 
     def get_comments(self, post_id: int):
         post = self.repo.get_post_by_id(post_id)
-        if not post:
+        if not post or post.moderation_status != "visible":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Post not found"
@@ -78,8 +88,8 @@ class CommunityService:
         return [self._serialize_comment(comment) for comment in comments]
 
     def delete_comment(self, current_user: User, comment_id: int):
-        comment = self.repo.get_comment_by_id_and_user(comment_id, current_user.id)
-        if not comment:
+        comment = self.repo.get_comment_by_id(comment_id)
+        if not comment or not self._can_manage_content(current_user, comment.user_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Comment not found or access denied"
@@ -87,6 +97,9 @@ class CommunityService:
 
         self.repo.delete_comment(comment)
         return {"message": "Comment deleted successfully"}
+
+    def _can_manage_content(self, current_user: User, owner_id: int) -> bool:
+        return current_user.id == owner_id or is_moderator_or_admin(current_user.role)
 
     def _serialize_post(self, post):
         author = {
@@ -99,7 +112,11 @@ class CommunityService:
             "content": post.content,
             "is_anonymous": post.is_anonymous,
             "author": author,
-            "comments_count": len(post.comments) if post.comments is not None else 0,
+            "comments_count": (
+                len([comment for comment in post.comments if comment.moderation_status == "visible"])
+                if post.comments is not None
+                else 0
+            ),
             "created_at": post.created_at,
             "updated_at": post.updated_at,
         }

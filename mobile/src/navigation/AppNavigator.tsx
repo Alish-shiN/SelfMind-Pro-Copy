@@ -164,6 +164,9 @@ import { AiChatScreen } from '../screens/AiChatScreen';
 import { AiQuizScreen } from '../screens/AiQuizScreen';
 import { CommunityScreen } from '../screens/CommunityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { SafetyScreen } from '../screens/SafetyScreen';
+import { AdminPanelScreen } from '../screens/AdminPanelScreen';
+import { getCurrentUser } from '../api/user';
 import { colors } from '../theme/colors';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -185,12 +188,30 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="AiDiary" component={AIDiaryScreen} />
       <HomeStack.Screen name="AiChat" component={AiChatScreen} />
       <HomeStack.Screen name="AiQuiz" component={AiQuizScreen} />
+      <HomeStack.Screen name="Safety" component={SafetyScreen} />
       <HomeStack.Screen name="Feature" component={FeaturePlaceholderScreen} />
     </HomeStack.Navigator>
   );
 }
 
 function MainTabsNavigator() {
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const user = await getCurrentUser();
+        if (!cancelled) setRole(user.role);
+      } catch {
+        if (!cancelled) setRole(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const showAdminPanel = role === 'admin' || role === 'moderator';
+
   return (
     <Tab.Navigator
       id="MainTabs"
@@ -234,6 +255,17 @@ function MainTabsNavigator() {
           ),
         }}
       />
+      {showAdminPanel ? (
+        <Tab.Screen
+          name="Admin"
+          component={AdminPanelScreen}
+          options={{
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="shield-checkmark-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      ) : null}
     </Tab.Navigator>
   );
 }
