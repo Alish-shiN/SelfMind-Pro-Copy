@@ -5,11 +5,13 @@ from app.core.roles import is_moderator_or_admin
 from app.models.user import User
 from app.repo.community_repository import CommunityRepository
 from app.schemas.community import CommunityCommentCreate, CommunityPostCreate
+from app.services.safety_service import SafetyService
 
 
 class CommunityService:
     def __init__(self, db: Session):
         self.repo = CommunityRepository(db)
+        self.safety_service = SafetyService(db)
 
     def create_post(self, current_user: User, payload: CommunityPostCreate):
         post = self.repo.create_post(
@@ -17,6 +19,7 @@ class CommunityService:
             content=payload.content,
             is_anonymous=payload.is_anonymous,
         )
+        self.safety_service.flag_if_needed(current_user, "community_post", post.id, payload.content)
         return self._serialize_post(post)
 
     def get_feed(self, limit: int = 20, offset: int = 0):
@@ -67,6 +70,8 @@ class CommunityService:
             content=payload.content,
             is_anonymous=payload.is_anonymous,
         )
+
+        self.safety_service.flag_if_needed(current_user, "community_comment", comment.id, payload.content)
 
         comment = self.repo.get_comment_by_id(comment.id)
         return self._serialize_comment(comment)

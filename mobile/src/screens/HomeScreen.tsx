@@ -108,6 +108,17 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={styles.adviseLabel}>Advise :</Text>
             <Text style={styles.adviseBody}>{advice}</Text>
 
+            <Pressable style={styles.safetyCard} onPress={() => navigation.navigate('Safety')}>
+              <View style={styles.safetyIcon}>
+                <Ionicons name="warning-outline" size={22} color="#B91C1C" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.safetyTitle}>Need immediate help?</Text>
+                <Text style={styles.safetyText}>Open crisis resources and safety support.</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+
             <Pressable
               style={styles.actionBtn}
               onPress={() => navigation.navigate('AiDiary')}
@@ -225,6 +236,27 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 20,
   },
+  safetyCard: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  safetyIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  safetyTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
+  safetyText: { fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '600' },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',

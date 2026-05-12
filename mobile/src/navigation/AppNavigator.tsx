@@ -164,6 +164,7 @@ import { AiChatScreen } from '../screens/AiChatScreen';
 import { AiQuizScreen } from '../screens/AiQuizScreen';
 import { CommunityScreen } from '../screens/CommunityScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { SafetyScreen } from '../screens/SafetyScreen';
 import { AdminPanelScreen } from '../screens/AdminPanelScreen';
 import { getCurrentUser } from '../api/user';
 import { colors } from '../theme/colors';
@@ -187,6 +188,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="AiDiary" component={AIDiaryScreen} />
       <HomeStack.Screen name="AiChat" component={AiChatScreen} />
       <HomeStack.Screen name="AiQuiz" component={AiQuizScreen} />
+      <HomeStack.Screen name="Safety" component={SafetyScreen} />
       <HomeStack.Screen name="Feature" component={FeaturePlaceholderScreen} />
     </HomeStack.Navigator>
   );

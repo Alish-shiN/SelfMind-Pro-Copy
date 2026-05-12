@@ -7,6 +7,7 @@ from app.repo.analytics_repository import AnalyticsRepository
 from app.repo.dashboard_repository import DashboardRepository
 from app.schemas.ai_quiz import AIQuizGenerateRequest, AIQuizSubmitRequest
 from app.services.ai_quiz_engine import AIQuizEngine
+from app.services.safety_service import SafetyService
 
 
 class AIQuizService:
@@ -15,6 +16,7 @@ class AIQuizService:
         self.analytics_repo = AnalyticsRepository(db)
         self.dashboard_repo = DashboardRepository(db)
         self.engine = AIQuizEngine()
+        self.safety_service = SafetyService(db)
 
     def generate_quiz(self, current_user: User, payload: AIQuizGenerateRequest):
         context = self._build_context(current_user)
@@ -48,7 +50,9 @@ class AIQuizService:
             )
 
         self.repo.delete_answers_for_session(session.id)
-        self.repo.create_answers(session.id, [item.model_dump() for item in payload.answers])
+        created_answers = self.repo.create_answers(session.id, [item.model_dump() for item in payload.answers])
+        for answer in created_answers:
+            self.safety_service.flag_if_needed(current_user, "ai_quiz_answer", answer.id, answer.answer_text)
 
         context = self._build_context(current_user)
         result_data = self.engine.analyze_answers(

@@ -13,6 +13,7 @@ export type HomeStackParamList = {
   AiDiary: { entryDate?: string; notificationEnabled?: boolean } | undefined;
   AiChat: undefined;
   AiQuiz: undefined;
+  Safety: undefined;
   Feature: { title: string };
 };
 
