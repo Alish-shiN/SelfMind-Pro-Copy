@@ -5,12 +5,14 @@ from app.models.user import User
 from app.repo.journal_repository import JournalRepository
 from app.schemas.journal import JournalCreate, JournalUpdate
 from app.services.analysis_service import AnalysisService
+from app.services.safety_service import SafetyService
 
 
 class JournalService:
     def __init__(self, db: Session):
         self.repo = JournalRepository(db)
         self.analysis_service = AnalysisService(db)
+        self.safety_service = SafetyService(db)
 
     def create_entry(self, current_user: User, payload: JournalCreate):
         entry = self.repo.create(
@@ -21,8 +23,11 @@ class JournalService:
             entry_date=payload.entry_date,
             tags=payload.tags,
             is_private=payload.is_private,
+            push_notification_enabled=payload.push_notification_enabled,
+            notification_title=payload.notification_title,
         )
 
+        self.safety_service.flag_if_needed(current_user, "journal_entry", entry.id, payload.content)
         self.analysis_service.generate_for_entry(entry.id)
         return entry
 
@@ -48,6 +53,8 @@ class JournalService:
 
         update_data = payload.model_dump(exclude_unset=True)
         updated_entry = self.repo.update(entry, update_data)
+        if payload.content is not None:
+            self.safety_service.flag_if_needed(current_user, "journal_entry", updated_entry.id, payload.content)
 
         self.analysis_service.regenerate_for_entry(current_user, updated_entry.id)
 

@@ -7,6 +7,7 @@ from app.repo.chat_repository import ChatRepository
 from app.repo.dashboard_repository import DashboardRepository
 from app.schemas.chat import ChatMessageCreate, ChatSessionCreate
 from app.services.ai_chat_engine import AIChatEngine
+from app.services.safety_service import SafetyService
 
 class ChatService:
     def __init__(self, db: Session):
@@ -14,6 +15,7 @@ class ChatService:
         self.analytics_repo = AnalyticsRepository(db)
         self.dashboard_repo = DashboardRepository(db)
         self.engine = AIChatEngine()
+        self.safety_service = SafetyService(db)
         
     def create_session(self, current_user: User, payload: ChatSessionCreate):
         return self.chat_repo.create_session(
@@ -50,6 +52,8 @@ class ChatService:
             role="user",
             content=payload.content,
         )
+
+        self.safety_service.flag_if_needed(current_user, "chat_message", user_message.id, payload.content)
 
         context = self._build_context(current_user)
         assistant_reply = self.engine.generate_reply(

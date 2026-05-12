@@ -10,9 +10,10 @@ export type RootStackParamList = {
 
 export type HomeStackParamList = {
   HomeMain: undefined;
-  AiDiary: { entryDate?: string; diaryType?: string } | undefined;
+  AiDiary: { entryDate?: string; notificationEnabled?: boolean } | undefined;
   AiChat: undefined;
   AiQuiz: undefined;
+  Safety: undefined;
   Feature: { title: string };
 };
 

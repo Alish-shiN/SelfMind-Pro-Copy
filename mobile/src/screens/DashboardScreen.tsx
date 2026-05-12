@@ -288,12 +288,12 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
               const entryDate = `${selectedDate.getFullYear()}-${String(
                 selectedDate.getMonth() + 1
               ).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-              const diaryType = actionMode === 'note' ? 'journal' : 'etc';
+              const notificationEnabled = actionMode === 'notifier';
 
               // Navigate into HomeStack (AiDiary) from the nested tab navigator.
               navigation.navigate('Home', {
                 screen: 'AiDiary',
-                params: { entryDate, diaryType },
+                params: { entryDate, notificationEnabled },
               });
             }}
           >
