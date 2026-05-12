@@ -8,6 +8,7 @@ from app.models.journal_analysis import JournalAnalysis
 from app.models.user import User
 from app.repo.analytics_repository import AnalyticsRepository
 from app.repo.dashboard_repository import DashboardRepository
+from app.services.analytics_service import AnalyticsService
 
 ACADEMIC_KEYWORDS = {
     "assignment",
@@ -46,12 +47,18 @@ SOCIAL_KEYWORDS = {
 
 STRESS_EMOTIONS = {"stress", "anxiety", "anger", "sadness"}
 POSITIVE_EMOTIONS = {"joy", "calm"}
+DEFAULT_PRIVACY_PREFERENCES = {
+    "journal_private_default": True,
+    "anonymous_community_default": False,
+    "share_ai_insights": False,
+}
 
 
 class PersonalizationService:
     def __init__(self, db: Session):
         self.db = db
         self.analytics_repo = AnalyticsRepository(db)
+        self.analytics_service = AnalyticsService(db)
         self.dashboard_repo = DashboardRepository(db)
 
     def build_context(self, current_user: User) -> dict:
@@ -60,14 +67,31 @@ class PersonalizationService:
         recent_entries = self._get_recent_entries(current_user.id, limit=30)
         recent_analyses = self._get_recent_analyses(current_user.id, limit=20)
 
+        user_preferences = self._user_preferences(current_user)
+        mood_analytics = self.analytics_service.get_mood_analytics(
+            current_user=current_user,
+            period="30d",
+            granularity="day",
+        )
+        mood_analytics_context = self._mood_analytics_context(
+            summary=summary,
+            entries=recent_entries,
+            analyses=recent_analyses,
+            user_id=current_user.id,
+            mood_analytics=mood_analytics,
+        )
+        mood_trend_explanation = self._mood_trend_explanation(recent_entries)
+
         return {
             "average_mood": summary.get("average_mood"),
-            "total_entries": summary.get("total_entries"),
+            "total_entries": summary.get("total_entries") or 0,
             "latest_emotion": (
                 latest_analysis.emotion_label if latest_analysis else None
             ),
+            "user_preferences": user_preferences,
+            "mood_analytics_context": mood_analytics_context,
             "weekly_summaries": self._weekly_summaries(recent_entries),
-            "mood_trends_explanation": self._mood_trends_explanation(recent_entries),
+            "mood_trend_explanation": mood_trend_explanation,
             "adaptive_prompts": self._adaptive_prompts(recent_entries, recent_analyses),
             "journaling_suggestions": self._journaling_suggestions(
                 recent_entries, recent_analyses
@@ -78,11 +102,71 @@ class PersonalizationService:
             "pattern_reflections": self._pattern_reflections(
                 recent_entries, recent_analyses
             ),
-            "insights_timeline": self._insights_timeline(recent_analyses),
+            "ai_insights_timeline": self._ai_insights_timeline(recent_analyses),
         }
 
     def get_ai_insights(self, current_user: User) -> dict:
         return self.build_context(current_user)
+
+    def _user_preferences(self, current_user: User) -> dict:
+        privacy_preferences = {
+            **DEFAULT_PRIVACY_PREFERENCES,
+            **(current_user.privacy_preferences or {}),
+        }
+        return {
+            "emotional_goals": current_user.emotional_goals or [],
+            "preferred_reflection_format": current_user.preferred_reflection_format
+            or "diary",
+            "reminder_frequency": current_user.reminder_frequency or "none",
+            "privacy_preferences": privacy_preferences,
+            "ai_tone": current_user.ai_tone or "calm",
+            "onboarding_completed": bool(current_user.onboarding_completed),
+            "onboarding_skipped": bool(current_user.onboarding_skipped),
+        }
+
+    def _mood_analytics_context(
+        self,
+        summary: dict,
+        entries: list[JournalEntry],
+        analyses: list[JournalAnalysis],
+        user_id: int,
+        mood_analytics: dict | None = None,
+    ) -> dict:
+        active_dates = self.analytics_repo.get_active_dates(user_id)
+        streaks = self.analytics_repo.calculate_streaks(active_dates)
+        recent_mood_history = [
+            {
+                "date": entry.created_at.date().isoformat(),
+                "mood_score": entry.mood_score,
+            }
+            for entry in sorted(entries, key=lambda item: item.created_at)[-14:]
+        ]
+        active_days = len({entry.created_at.date() for entry in entries})
+        window_frequency = {
+            "entries_count": len(entries),
+            "active_days": active_days,
+            "average_entries_per_active_day": (
+                round(len(entries) / active_days, 2) if active_days else 0
+            ),
+        }
+        analytics_payload = mood_analytics or {}
+        return {
+            "summary": analytics_payload.get("summary")
+            or {
+                "total_entries": summary.get("total_entries") or 0,
+                "average_mood": summary.get("average_mood"),
+                "min_mood": summary.get("min_mood"),
+                "max_mood": summary.get("max_mood"),
+            },
+            "recent_mood_history": recent_mood_history,
+            "streaks": analytics_payload.get("streak") or streaks,
+            "journaling_frequency": analytics_payload.get("journaling_frequency")
+            or window_frequency,
+            "journaling_frequency_30_entries_window": window_frequency,
+            "top_emotions": analytics_payload.get("top_emotions")
+            or self._top_emotions(analyses),
+            "correlations": analytics_payload.get("correlations") or [],
+        }
 
     def _get_recent_entries(self, user_id: int, limit: int) -> list[JournalEntry]:
         return (
@@ -134,7 +218,7 @@ class PersonalizationService:
 
         return summaries
 
-    def _mood_trends_explanation(self, entries: list[JournalEntry]) -> str | None:
+    def _mood_trend_explanation(self, entries: list[JournalEntry]) -> str | None:
         chronological = sorted(entries, key=lambda entry: entry.created_at)
         if len(chronological) < 2:
             return None
@@ -202,7 +286,7 @@ class PersonalizationService:
             questions.append(
                 f"Your latest entry carried a {latest.emotion_label} tone. What do you think contributed most to it?"
             )
-        if self._mood_trends_explanation(entries):
+        if self._mood_trend_explanation(entries):
             questions.append(
                 "What changed in your routine during the days when your mood shifted?"
             )
@@ -237,7 +321,7 @@ class PersonalizationService:
             )
         return reflections[:5]
 
-    def _insights_timeline(self, analyses: list[JournalAnalysis]) -> list[dict]:
+    def _ai_insights_timeline(self, analyses: list[JournalAnalysis]) -> list[dict]:
         timeline = []
         for analysis in analyses:
             title = self._timeline_title(analysis)
@@ -329,6 +413,22 @@ class PersonalizationService:
             ):
                 count += 1
         return count
+
+    def _top_emotions(self, analyses: list[JournalAnalysis]) -> list[dict]:
+        counter = Counter(
+            analysis.emotion_label for analysis in analyses if analysis.emotion_label
+        )
+        total = sum(counter.values())
+        if total == 0:
+            return []
+        return [
+            {
+                "emotion_label": emotion,
+                "count": count,
+                "percentage": round((count / total) * 100, 2),
+            }
+            for emotion, count in counter.most_common(5)
+        ]
 
     def _dominant_stress_emotion(self, analyses: list[JournalAnalysis]) -> str | None:
         counter = Counter(
