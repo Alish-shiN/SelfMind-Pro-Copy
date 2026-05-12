@@ -5,24 +5,39 @@ from app.services.openai_client import client
 
 
 class AIQuizEngine:
-    def generate_questions(self, quiz_type: str, context: dict | None = None) -> list[dict]:
+    def generate_questions(
+        self, quiz_type: str, context: dict | None = None
+    ) -> list[dict]:
         try:
             return self._generate_questions_openai(quiz_type, context)
         except Exception:
             return self._fallback_questions(quiz_type)
 
-    def analyze_answers(self, quiz_type: str, questions: list[dict], answers: list[dict], context: dict | None = None) -> dict:
+    def analyze_answers(
+        self,
+        quiz_type: str,
+        questions: list[dict],
+        answers: list[dict],
+        context: dict | None = None,
+    ) -> dict:
         try:
             return self._analyze_answers_openai(quiz_type, questions, answers, context)
         except Exception:
             return self._fallback_result(answers)
 
-    def _generate_questions_openai(self, quiz_type: str, context: dict | None = None) -> list[dict]:
+    def _generate_questions_openai(
+        self, quiz_type: str, context: dict | None = None
+    ) -> list[dict]:
+        personalization_context = json.dumps(
+            context or {}, ensure_ascii=False, default=str
+        )
+
         prompt = f"""
 You are generating an adaptive emotional self-assessment quiz for a journaling app.
 
 Return STRICT JSON ARRAY only.
 Generate exactly 6 questions for quiz type: {quiz_type}
+Personalization context JSON: {personalization_context}
 
 Each item must follow:
 {{
@@ -35,6 +50,8 @@ Each item must follow:
 Rules:
 - Supportive, reflective, non-clinical language
 - Focus on stress, emotional load, energy, coping, and self-awareness
+- Personalize gently using weekly summaries, mood trends, adaptive prompts, follow-up questions, and pattern reflections when available
+- Prefer questions that reflect recurring user themes without sounding certain or clinical
 - No diagnosis
 - All questions must be suitable for university-age users
 - Use only answer_type = "scale"
@@ -47,7 +64,13 @@ Rules:
 
         return json.loads(response.output_text)
 
-    def _analyze_answers_openai(self, quiz_type: str, questions: list[dict], answers: list[dict], context: dict | None = None) -> dict:
+    def _analyze_answers_openai(
+        self,
+        quiz_type: str,
+        questions: list[dict],
+        answers: list[dict],
+        context: dict | None = None,
+    ) -> dict:
         payload = {
             "quiz_type": quiz_type,
             "questions": questions,
@@ -70,12 +93,14 @@ Analyze this completed self-assessment and return STRICT JSON:
 Rules:
 - No diagnosis
 - Non-clinical language
-- recommendation should be short and practical
-- practice should be a concrete short exercise
+- Use the personalization context to explain patterns, mood trends, and recurring pressures when relevant
+- insight should feel like a reflective observation over time, not only a score interpretation
+- recommendation should be short, practical, and personalized
+- practice should be a concrete short exercise tailored to the user's recent patterns when possible
 - overall_score should be from 0 to 100
 
 Assessment data:
-{json.dumps(payload, ensure_ascii=False)}
+{json.dumps(payload, ensure_ascii=False, default=str)}
 """
 
         response = client.responses.create(
@@ -87,9 +112,17 @@ Assessment data:
         return {
             "overall_score": float(parsed.get("overall_score", 0)),
             "severity_level": parsed.get("severity_level", "moderate"),
-            "insight": parsed.get("insight", "Your answers suggest noticeable emotional strain."),
-            "recommendation": parsed.get("recommendation", "Try to reduce your load by focusing on one manageable step."),
-            "practice": parsed.get("practice", "Take 2 minutes for slow breathing and write one thing that feels most important right now."),
+            "insight": parsed.get(
+                "insight", "Your answers suggest noticeable emotional strain."
+            ),
+            "recommendation": parsed.get(
+                "recommendation",
+                "Try to reduce your load by focusing on one manageable step.",
+            ),
+            "practice": parsed.get(
+                "practice",
+                "Take 2 minutes for slow breathing and write one thing that feels most important right now.",
+            ),
         }
 
     def _fallback_questions(self, quiz_type: str) -> list[dict]:
@@ -104,7 +137,13 @@ Assessment data:
                 "question_index": 2,
                 "question_text": "How difficult has it been to relax when thinking about your responsibilities?",
                 "answer_type": "scale",
-                "options": ["Not difficult", "A little", "Moderately", "Very", "Extremely"],
+                "options": [
+                    "Not difficult",
+                    "A little",
+                    "Moderately",
+                    "Very",
+                    "Extremely",
+                ],
             },
             {
                 "question_index": 3,
@@ -116,7 +155,13 @@ Assessment data:
                 "question_index": 4,
                 "question_text": "How confident do you feel about handling your current workload?",
                 "answer_type": "scale",
-                "options": ["Very confident", "Somewhat", "Neutral", "Not very", "Not at all"],
+                "options": [
+                    "Very confident",
+                    "Somewhat",
+                    "Neutral",
+                    "Not very",
+                    "Not at all",
+                ],
             },
             {
                 "question_index": 5,
@@ -128,7 +173,13 @@ Assessment data:
                 "question_index": 6,
                 "question_text": "How supported do you feel right now by your routines or people around you?",
                 "answer_type": "scale",
-                "options": ["Very supported", "Somewhat", "Neutral", "Not much", "Not at all"],
+                "options": [
+                    "Very supported",
+                    "Somewhat",
+                    "Neutral",
+                    "Not much",
+                    "Not at all",
+                ],
             },
         ]
 
