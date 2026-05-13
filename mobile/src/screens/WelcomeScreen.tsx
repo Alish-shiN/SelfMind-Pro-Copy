@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,28 +11,28 @@ import {
   Text,
   TouchableWithoutFeedback,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { DecorBlobs } from '../components/DecorBlobs';
-import { PillInput } from '../components/PillInput';
-import { colors } from '../theme/colors';
-import { login } from '../api/auth';
-import { ApiError } from '../api/client';
-import { useAuth } from '../context/AuthContext';
-import { useTranslation } from '../i18n/I18nContext';
-import type { WelcomeScreenProps } from '../navigation/types';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { DecorBlobs } from "../components/DecorBlobs";
+import { PillInput } from "../components/PillInput";
+import { colors } from "../theme/colors";
+import { login } from "../api/auth";
+import { ApiError } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n/I18nContext";
+import type { WelcomeScreenProps } from "../navigation/types";
 
 export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
   const { signIn } = useAuth();
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const onSignIn = async () => {
     if (!email.trim() || !password) {
-      Alert.alert(t('missingFields'), 'Please enter your email and password.');
+      Alert.alert(t("missingFields"), t("signInValidation"));
       return;
     }
     setLoading(true);
@@ -40,20 +40,20 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
       const res = await login(email.trim(), password);
       await signIn(res.access_token);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : t('signInFailed');
-      Alert.alert(t('signInFailed'), msg);
+      const msg = e instanceof ApiError ? e.message : t("signInFailed");
+      Alert.alert(t("signInFailed"), msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <DecorBlobs variant="welcome" />
       <KeyboardAvoidingView
         style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <ScrollView
@@ -62,19 +62,28 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.inner}>
-              <Text style={styles.welcome}>{t('welcome')}</Text>
+              <Text style={styles.welcome}>{t("welcome")}</Text>
 
               <View style={styles.hero}>
-                <Text style={styles.heroEmoji} accessibilityLabel="Illustration">
+                <Text
+                  style={styles.heroEmoji}
+                  accessibilityLabel="Illustration"
+                >
                   🧠🌸
                 </Text>
-                <Text style={styles.heroCaption}>{t('mindfulSelfCare')}</Text>
+                <Text style={styles.heroCaption}>{t("mindfulSelfCare")}</Text>
               </View>
 
               <PillInput
-                label={t('email')}
-                icon={<Ionicons name="person-outline" size={20} color={colors.text} />}
-                placeholder={t('enterEmail')}
+                label={t("email")}
+                icon={
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={colors.text}
+                  />
+                }
+                placeholder={t("enterEmail")}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 value={email}
@@ -82,22 +91,35 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
               />
 
               <PillInput
-                label={t('password')}
-                icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} />}
+                label={t("password")}
+                icon={
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color={colors.textMuted}
+                  />
+                }
                 placeholder="••••••••"
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
               />
 
-              <Pressable style={styles.forgotWrap} onPress={() => Alert.alert(t('forgotPassword'), 'Contact support or reset via web when available.')}>
-                <Text style={styles.forgot}>{t('forgotPassword')}</Text>
+              <Pressable
+                style={styles.forgotWrap}
+                onPress={() =>
+                  Alert.alert(t("forgotPassword"), t("forgotPasswordHelp"))
+                }
+              >
+                <Text style={styles.forgot}>{t("forgotPassword")}</Text>
               </Pressable>
 
-              <Text style={styles.orConnect}>{t('orConnectWith')}</Text>
+              <Text style={styles.orConnect}>{t("orConnectWith")}</Text>
               <Pressable
                 style={styles.googleRow}
-                onPress={() => Alert.alert('Google sign-in', 'Wire this to your OAuth flow when ready.')}
+                onPress={() =>
+                  Alert.alert(t("googleSignIn"), t("googleSignInHelp"))
+                }
               >
                 <Text style={styles.googleG}>G</Text>
               </Pressable>
@@ -110,21 +132,21 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
                 {loading ? (
                   <ActivityIndicator color={colors.white} />
                 ) : (
-                  <Text style={styles.primaryBtnText}>{t('signIn')}</Text>
+                  <Text style={styles.primaryBtnText}>{t("signIn")}</Text>
                 )}
               </Pressable>
 
               <View style={styles.separatorRow}>
                 <View style={styles.sepLine} />
-                <Text style={styles.sepOr}>or</Text>
+                <Text style={styles.sepOr}>{t("or")}</Text>
                 <View style={styles.sepLine} />
               </View>
 
               <Pressable
                 style={styles.primaryBtn}
-                onPress={() => navigation.navigate('Register')}
+                onPress={() => navigation.navigate("Register")}
               >
-                <Text style={styles.primaryBtnText}>{t('createAccount')}</Text>
+                <Text style={styles.primaryBtnText}>{t("createAccount")}</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -150,13 +172,13 @@ const styles = StyleSheet.create({
   },
   welcome: {
     fontSize: 32,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
     color: colors.text,
     marginBottom: 12,
   },
   hero: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   heroEmoji: {
@@ -168,7 +190,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   forgotWrap: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginBottom: 20,
     marginTop: -6,
   },
@@ -177,25 +199,25 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   orConnect: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
     color: colors.textMuted,
     marginBottom: 10,
   },
   googleRow: {
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: 22,
   },
   googleG: {
     fontSize: 36,
-    fontWeight: '700',
-    color: '#4285F4',
+    fontWeight: "700",
+    color: "#4285F4",
   },
   primaryBtn: {
     backgroundColor: colors.coralButton,
     borderRadius: 999,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   btnDisabled: {
     opacity: 0.7,
@@ -203,17 +225,17 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: colors.white,
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   separatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 16,
   },
   sepLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
   },
   sepOr: {
     marginHorizontal: 12,
