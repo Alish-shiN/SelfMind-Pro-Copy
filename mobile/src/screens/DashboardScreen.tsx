@@ -143,6 +143,50 @@ function MiniHeatmap({ days }: { days: MoodAnalytics["emotion_heatmap"] }) {
   );
 }
 
+function MoodTrendChart({ points }: { points: MoodAnalytics['mood_history'] }) {
+  const visible = points.slice(-12);
+  const maxMood = 10;
+  return (
+    <View style={styles.trendChart}>
+      {visible.map((point) => {
+        const height = point.average_mood == null ? 8 : Math.max(8, (point.average_mood / maxMood) * 92);
+        return (
+          <View key={point.period_start} style={styles.trendItem}>
+            <View style={styles.trendBarTrack}>
+              <View
+                style={[
+                  styles.trendBarFill,
+                  { height: `${height}%` as any, backgroundColor: moodColor(point.average_mood) },
+                ]}
+              />
+            </View>
+            <Text style={styles.trendLabel} numberOfLines={1}>{point.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function MiniHeatmap({ days }: { days: MoodAnalytics['emotion_heatmap'] }) {
+  return (
+    <View style={styles.heatmapGrid}>
+      {days.slice(-35).map((day) => (
+        <View
+          key={day.date}
+          style={[
+            styles.heatmapCell,
+            {
+              backgroundColor: emotionColor(day.dominant_emotion),
+              opacity: day.entries_count > 0 ? Math.max(0.35, day.intensity) : 0.25,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function DashboardScreen({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
   const { t, language } = useTranslation();
@@ -1258,6 +1302,116 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textTransform: "capitalize",
   },
+
+
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sectionHint: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterChipOn: { backgroundColor: '#FFF0EE', borderColor: colors.coral },
+  filterChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'capitalize' },
+  filterChipTextOn: { color: colors.coral },
+
+
+  archiveCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  archiveIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF3F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  archiveTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
+  archiveSubtitle: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginTop: 2 },
+  archiveButton: { backgroundColor: colors.coral, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  archiveButtonText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+
+  quizPlanCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2FF',
+    gap: 8,
+  },
+  quizPlanTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quizPlanTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
+  quizPlanScore: { fontSize: 22, fontWeight: '900', color: colors.coral },
+  quizPlanMeta: { fontSize: 11, color: colors.textMuted, fontWeight: '800', textTransform: 'capitalize' },
+  quizPlanSummary: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  quizPlanActionRow: { flexDirection: 'row', gap: 7, alignItems: 'flex-start' },
+  quizPlanAction: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 17, fontWeight: '700' },
+  quizPlanButton: { backgroundColor: colors.coral, borderRadius: 14, paddingVertical: 11, alignItems: 'center', marginTop: 4 },
+  quizPlanButtonText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+
+  analyticsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  analyticsTitle: { fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 10 },
+  trendChart: { height: 140, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  trendItem: { flex: 1, alignItems: 'center', gap: 5 },
+  trendBarTrack: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  trendBarFill: { width: '100%', borderRadius: 10 },
+  trendLabel: { fontSize: 9, color: colors.textMuted, maxWidth: 44 },
+  analyticsMiniGrid: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  analyticsMiniCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+  },
+  analyticsMiniValue: { fontSize: 16, fontWeight: '900', color: colors.text },
+  analyticsMiniLabel: { fontSize: 10, color: colors.textMuted, textAlign: 'center', marginTop: 2 },
+  emotionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  emotionName: { width: 84, fontSize: 12, color: colors.text, fontWeight: '700', textTransform: 'capitalize' },
+  emotionBarTrack: { flex: 1, height: 7, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F3F4F6' },
+  emotionBarFill: { height: 7, borderRadius: 4, backgroundColor: colors.coral },
+  emotionPct: { width: 48, fontSize: 11, color: colors.textMuted, textAlign: 'right', fontWeight: '700' },
+  heatmapGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  heatmapCell: { width: 16, height: 16, borderRadius: 5 },
+  analyticsCaption: { color: colors.textMuted, fontSize: 11, marginTop: 10, lineHeight: 15 },
+  insightBullet: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginBottom: 10 },
+  insightBulletTitle: { fontSize: 12, color: colors.text, fontWeight: '800' },
+  insightBulletText: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginTop: 2 },
+  correlationText: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4, textTransform: 'capitalize' },
 
   emptyCard: {
     backgroundColor: colors.white,

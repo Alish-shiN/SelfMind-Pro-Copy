@@ -1114,6 +1114,11 @@ export function AIDiaryScreen({ route, navigation }: Props) {
     );
   };
 
+  const openArchive = () => {
+    const rootNavigation = navigation.getParent()?.getParent();
+    rootNavigation?.navigate('ArchiveSearch' as never, { initialTab: 'journals' } as never);
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
