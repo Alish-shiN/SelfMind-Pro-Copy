@@ -111,7 +111,37 @@ const en = {
   startJournalingAdvice:
     "Start journaling to receive personalized insights and advice.",
   needHelp: "Need immediate help?",
+  immediateHelp: "Immediate help",
   crisisResources: "Open crisis resources and safety support.",
+  call: "Call",
+  sms: "SMS",
+  trustedPerson: "Trusted person",
+  trustedPersonPhoneNumber: "Trusted person's phone number",
+  trustedPersonHelper:
+    "Add someone you trust so you can quickly call or text them during a difficult moment.",
+  trustedPersonMissing:
+    "Add a trusted person's phone number in personalization settings first.",
+  trustedPersonPhoneInvalid:
+    "Please enter a phone number using digits, spaces, +, -, or parentheses.",
+  therapistMentorMode: "Therapist & mentor contacts",
+  therapistMentorSubtitle:
+    "If you need human support, reach out to a therapist, mentor, or university support contact.",
+  safetyDisclaimer:
+    "SelfMind Pro is not an emergency service. If you may hurt yourself or someone else, call local emergency services now.",
+  couldNotOpenPhone: "Could not open the phone app on this device.",
+  couldNotOpenSms: "Could not open SMS on this device.",
+  supportContactStudentMentor: "Student mentor",
+  supportContactMentorRole: "Peer support",
+  supportContactStudentMentorDesc:
+    "A trusted campus mentor who can stay with you and help you find next steps.",
+  supportContactTherapist: "Campus therapist",
+  supportContactTherapistRole: "Mental health specialist",
+  supportContactTherapistDesc:
+    "A professional support contact for urgent emotional distress.",
+  supportContactUniversityOffice: "University support office",
+  supportContactOfficeRole: "Student services",
+  supportContactUniversityOfficeDesc:
+    "Administrative support that can connect you with local safety resources.",
   currentMood: "Current Mood",
   noDataYet: "No data yet",
   searchHistory: "Search your history",

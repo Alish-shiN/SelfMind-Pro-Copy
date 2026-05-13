@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -42,6 +43,7 @@ import {
   updateReminderPreferences,
 } from "../api/reminders";
 import { scheduleReminderPreferences } from "../lib/notifications";
+import { getTrustedPersonPhone, setTrustedPersonPhone } from "../lib/storage";
 import { supportedLanguages, useTranslation } from "../i18n/I18nContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
@@ -296,10 +298,17 @@ function PersonalizationPreferencesModal({
 }) {
   const { language, setLanguage, t } = useTranslation();
   const [draft, setDraft] = useState<UserPreferences | null>(preferences);
+  const [trustedPhone, setTrustedPhone] = useState("");
+  const [trustedPhoneError, setTrustedPhoneError] = useState<string | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (visible) setDraft(preferences);
+    if (!visible) return;
+    setDraft(preferences);
+    setTrustedPhoneError(null);
+    void getTrustedPersonPhone().then((phone) => setTrustedPhone(phone ?? ""));
   }, [preferences, visible]);
 
   if (!draft) return null;
@@ -318,8 +327,15 @@ function PersonalizationPreferencesModal({
   };
 
   const save = async () => {
+    const phone = trustedPhone.trim();
+    if (phone && !/^[+()\d\s-]+$/.test(phone)) {
+      setTrustedPhoneError(t("trustedPersonPhoneInvalid"));
+      return;
+    }
+
     setSaving(true);
     try {
+      await setTrustedPersonPhone(phone);
       const updated = await updateUserPreferences({
         ...draft,
         onboarding_completed: true,
@@ -434,6 +450,25 @@ function PersonalizationPreferencesModal({
               setDraft({ ...draft, ai_tone: value as AITone })
             }
           />
+
+          <Text style={styles.sectionLabel}>{t("trustedPerson")}</Text>
+          <TextInput
+            style={styles.trustedPhoneInput}
+            value={trustedPhone}
+            onChangeText={(value) => {
+              setTrustedPhone(value);
+              setTrustedPhoneError(null);
+            }}
+            placeholder={t("trustedPersonPhoneNumber")}
+            placeholderTextColor={colors.textMuted}
+            keyboardType="phone-pad"
+          />
+          <Text style={styles.trustedPhoneHint}>
+            {t("trustedPersonHelper")}
+          </Text>
+          {trustedPhoneError ? (
+            <Text style={styles.trustedPhoneError}>{trustedPhoneError}</Text>
+          ) : null}
 
           <Text style={styles.sectionLabel}>{t("privacy")}</Text>
           <PreferenceToggle
@@ -901,7 +936,7 @@ ${pdf.localUri}`,
   );
 }
 
-export function ProfileScreen({ navigation }: Props) {
+export function ProfileScreen({ navigation, route }: Props) {
   const { signOut } = useAuth();
   const { t, language } = useTranslation();
   const [user, setUser] = useState<UserResponse | null>(null);
@@ -944,6 +979,12 @@ export function ProfileScreen({ navigation }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (route.params?.openPersonalization) {
+      setPreferencesModalVisible(true);
+    }
+  }, [route.params?.openPersonalization]);
 
   const onSignOut = useCallback(() => {
     Alert.alert(t("signOutConfirmTitle"), t("signOutConfirm"), [
@@ -1631,6 +1672,32 @@ const styles = StyleSheet.create({
     textTransform: "capitalize",
   },
   prefChipTextOn: { color: colors.coral },
+  trustedPhoneInput: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: "#E8ECF4",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.text,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  trustedPhoneHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
+  trustedPhoneError: {
+    color: "#B91C1C",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 10,
+    marginLeft: 4,
+  },
   privacyNoticeCard: {
     backgroundColor: colors.white,
     borderRadius: 18,

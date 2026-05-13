@@ -1,72 +1,137 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ApiError } from "../api/client";
-import {
-  checkSafetyText,
-  CrisisResource,
-  getCrisisResources,
-  SafetyCheckResponse,
-} from "../api/safety";
+import { CrisisResource, getCrisisResources } from "../api/safety";
+import { SUPPORT_CONTACTS, SupportContact } from "../constants/supportContacts";
 import type { HomeStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 import { useTranslation } from "../i18n/I18nContext";
+import { getTrustedPersonPhone } from "../lib/storage";
 
 type Props = NativeStackScreenProps<HomeStackParamList, "Safety">;
 
-function callNumber(value: string) {
-  if (/^\d+$/.test(value)) {
-    void Linking.openURL(`tel:${value}`);
+type ContactAction = "call" | "sms";
+
+function normalizePhoneForUrl(value: string) {
+  return value.replace(/[^+\d]/g, "");
+}
+
+async function openContactUrl(
+  phone: string,
+  action: ContactAction,
+  fallbackMessage: string,
+) {
+  const normalized = normalizePhoneForUrl(phone);
+  if (!normalized) {
+    Alert.alert(fallbackMessage);
+    return;
   }
+
+  const url = `${action === "call" ? "tel" : "sms"}:${normalized}`;
+  try {
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      Alert.alert(fallbackMessage);
+      return;
+    }
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert(fallbackMessage);
+  }
+}
+
+function SupportContactCard({ contact }: { contact: SupportContact }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.supportContactCard}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.resourceTitle}>{t(contact.nameKey)}</Text>
+        <Text style={styles.contactRole}>{t(contact.roleKey)}</Text>
+        {contact.descriptionKey ? (
+          <Text style={styles.resourceDescription}>
+            {t(contact.descriptionKey)}
+          </Text>
+        ) : null}
+        <Text style={styles.contactPhone}>{contact.phone}</Text>
+      </View>
+      <View style={styles.contactActions}>
+        <Pressable
+          style={styles.smallContactButton}
+          onPress={() =>
+            openContactUrl(contact.phone, "call", t("couldNotOpenPhone"))
+          }
+        >
+          <Text style={styles.smallContactButtonText}>{t("call")}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.smallContactButton, styles.smsButton]}
+          onPress={() =>
+            openContactUrl(contact.phone, "sms", t("couldNotOpenSms"))
+          }
+        >
+          <Text style={styles.smsButtonText}>{t("sms")}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
 }
 
 export function SafetyScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [resources, setResources] = useState<CrisisResource[]>([]);
+  const [trustedPhone, setTrustedPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkText, setCheckText] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [checkResult, setCheckResult] = useState<SafetyCheckResponse | null>(
-    null,
-  );
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      setResources(await getCrisisResources());
+      const [resourceData, savedTrustedPhone] = await Promise.all([
+        getCrisisResources(),
+        getTrustedPersonPhone(),
+      ]);
+      setResources(resourceData);
+      setTrustedPhone(savedTrustedPhone);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("couldNotLoadSafety"));
+      setTrustedPhone(await getTrustedPersonPhone().catch(() => null));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const runCheck = async () => {
-    if (!checkText.trim()) return;
-    setChecking(true);
-    try {
-      setCheckResult(await checkSafetyText(checkText.trim()));
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : t("couldNotCheckText"));
-    } finally {
-      setChecking(false);
+  const goToTrustedPersonSettings = () => {
+    Alert.alert(t("trustedPersonMissing"));
+    const rootNavigation = navigation.getParent()?.getParent();
+    (rootNavigation as any)?.navigate("Profile", { openPersonalization: true });
+  };
+
+  const onTrustedPersonAction = (action: ContactAction) => {
+    if (!trustedPhone?.trim()) {
+      goToTrustedPersonSettings();
+      return;
     }
+    void openContactUrl(
+      trustedPhone,
+      action,
+      action === "call" ? t("couldNotOpenPhone") : t("couldNotOpenSms"),
+    );
   };
 
   return (
@@ -75,7 +140,7 @@ export function SafetyScreen({ navigation }: Props) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>{t("needHelp")}</Text>
+        <Text style={styles.headerTitle}>{t("immediateHelp")}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -86,7 +151,7 @@ export function SafetyScreen({ navigation }: Props) {
         <View style={styles.crisisCard}>
           <Ionicons name="warning-outline" size={30} color="#B91C1C" />
           <Text style={styles.crisisTitle}>{t("safetyDangerTitle")}</Text>
-          <Text style={styles.crisisText}>{t("safetyDangerText")}</Text>
+          <Text style={styles.crisisText}>{t("safetyDisclaimer")}</Text>
         </View>
 
         {loading ? (
@@ -97,6 +162,50 @@ export function SafetyScreen({ navigation }: Props) {
         ) : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+        <View style={styles.trustedCard}>
+          <View style={styles.cardHeaderRow}>
+            <Ionicons name="people-outline" size={22} color={colors.coral} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.checkTitle}>{t("trustedPerson")}</Text>
+              <Text style={styles.checkHint}>{t("trustedPersonHelper")}</Text>
+            </View>
+          </View>
+          {trustedPhone ? (
+            <Text style={styles.contactPhone}>{trustedPhone}</Text>
+          ) : (
+            <Text style={styles.missingText}>{t("trustedPersonMissing")}</Text>
+          )}
+          <View style={styles.trustedActions}>
+            <Pressable
+              style={styles.contactButton}
+              onPress={() => onTrustedPersonAction("call")}
+            >
+              <Ionicons name="call-outline" size={18} color="#fff" />
+              <Text style={styles.contactButtonText}>{t("call")}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.contactButton, styles.smsContactButton]}
+              onPress={() => onTrustedPersonAction("sms")}
+            >
+              <Ionicons
+                name="chatbubble-outline"
+                size={18}
+                color={colors.coral}
+              />
+              <Text style={styles.smsContactButtonText}>{t("sms")}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.checkCard}>
+          <Text style={styles.checkTitle}>{t("therapistMentorMode")}</Text>
+          <Text style={styles.checkHint}>{t("therapistMentorSubtitle")}</Text>
+          <Text style={styles.disclaimerText}>{t("safetyDisclaimer")}</Text>
+          {SUPPORT_CONTACTS.map((contact) => (
+            <SupportContactCard key={contact.id} contact={contact} />
+          ))}
+        </View>
+
         {resources.map((resource) => (
           <View style={styles.resourceCard} key={resource.title}>
             <Text style={styles.resourceTitle}>{resource.title}</Text>
@@ -105,7 +214,13 @@ export function SafetyScreen({ navigation }: Props) {
             </Text>
             <Pressable
               style={styles.resourceButton}
-              onPress={() => callNumber(resource.action_value)}
+              onPress={() =>
+                openContactUrl(
+                  resource.action_value,
+                  "call",
+                  t("couldNotOpenPhone"),
+                )
+              }
             >
               <Ionicons name="call-outline" size={18} color="#fff" />
               <Text style={styles.resourceButtonText}>
@@ -120,47 +235,6 @@ export function SafetyScreen({ navigation }: Props) {
           <Text style={styles.groundingText}>{t("safetyStep1")}</Text>
           <Text style={styles.groundingText}>{t("safetyStep2")}</Text>
           <Text style={styles.groundingText}>{t("safetyStep3")}</Text>
-        </View>
-
-        <View style={styles.checkCard}>
-          <Text style={styles.checkTitle}>{t("safetyCheck")}</Text>
-          <Text style={styles.checkHint}>{t("safetyCheckHint")}</Text>
-          <TextInput
-            style={styles.checkInput}
-            placeholder={t("writeMessage")}
-            placeholderTextColor={colors.textPlaceholder}
-            value={checkText}
-            onChangeText={setCheckText}
-            multiline
-          />
-          <Pressable
-            style={styles.checkButton}
-            onPress={runCheck}
-            disabled={checking || !checkText.trim()}
-          >
-            {checking ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.checkButtonText}>{t("checkText")}</Text>
-            )}
-          </Pressable>
-          {checkResult ? (
-            <View
-              style={[
-                styles.resultBox,
-                checkResult.is_flagged ? styles.resultDanger : styles.resultOk,
-              ]}
-            >
-              <Text style={styles.resultTitle}>
-                {checkResult.is_flagged
-                  ? t("safetySignalFound")
-                  : t("noCrisisKeywords")}
-              </Text>
-              {checkResult.message ? (
-                <Text style={styles.resultText}>{checkResult.message}</Text>
-              ) : null}
-            </View>
-          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -250,7 +324,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#E8ECF4",
+    gap: 10,
   },
+  trustedCard: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E8ECF4",
+    gap: 12,
+  },
+  cardHeaderRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   checkTitle: { fontSize: 16, fontWeight: "900", color: colors.text },
   checkHint: {
     color: colors.textMuted,
@@ -258,27 +342,44 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 18,
   },
-  checkInput: {
-    minHeight: 90,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 12,
-    textAlignVertical: "top",
-    color: colors.text,
+  disclaimerText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
   },
-  checkButton: {
+  contactPhone: { color: colors.text, fontWeight: "800", marginTop: 6 },
+  contactRole: { color: colors.coral, fontWeight: "900", marginTop: 3 },
+  missingText: { color: "#B91C1C", fontWeight: "700" },
+  trustedActions: { flexDirection: "row", gap: 10 },
+  contactButton: {
+    flex: 1,
     backgroundColor: colors.coral,
     borderRadius: 999,
     paddingVertical: 12,
     alignItems: "center",
-    marginTop: 12,
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
-  checkButtonText: { color: "#fff", fontWeight: "900" },
-  resultBox: { borderRadius: 14, padding: 12, marginTop: 12 },
-  resultDanger: { backgroundColor: "#FEE2E2" },
-  resultOk: { backgroundColor: "#DCFCE7" },
-  resultTitle: { fontWeight: "900", color: colors.text },
-  resultText: { color: colors.textMuted, marginTop: 4, lineHeight: 18 },
+  contactButtonText: { color: "#fff", fontWeight: "900" },
+  smsContactButton: { backgroundColor: "#FFF3F1" },
+  smsContactButtonText: { color: colors.coral, fontWeight: "900" },
+  supportContactCard: {
+    borderWidth: 1,
+    borderColor: "#EEF2F7",
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+  },
+  contactActions: { flexDirection: "row", gap: 8 },
+  smallContactButton: {
+    backgroundColor: colors.coral,
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  smallContactButtonText: { color: "#fff", fontWeight: "900" },
+  smsButton: { backgroundColor: "#FFF3F1" },
+  smsButtonText: { color: colors.coral, fontWeight: "900" },
 });

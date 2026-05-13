@@ -18,6 +18,7 @@ import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { formatMoodLine, moodEmoji } from "../utils/mood";
 import { useTranslation } from "../i18n/I18nContext";
+import { shouldShowImmediateHelp } from "../lib/safetySupport";
 import type { HomeStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<HomeStackParamList, "HomeMain">;
@@ -71,6 +72,18 @@ export function HomeScreen({ navigation }: Props) {
     analysis?.recommendation ||
     analysis?.short_summary ||
     t("startJournalingAdvice");
+  const latestEntry = data?.recent_entries?.[0];
+  const latestQuizPlan = data?.latest_quiz_action_plan;
+  const showImmediateHelp = shouldShowImmediateHelp({
+    recentMood: latestEntry?.mood_score ?? data?.stats.average_mood,
+    recentJournalText: latestEntry?.title,
+    recentAiInsight: analysis
+      ? `${analysis.emotion_label} ${analysis.sentiment_label} ${analysis.short_summary} ${analysis.recommendation}`
+      : null,
+    recentQuizResult: latestQuizPlan
+      ? `${latestQuizPlan.severity_level} ${latestQuizPlan.summary} ${latestQuizPlan.next_actions.join(" ")}`
+      : null,
+  });
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -112,23 +125,25 @@ export function HomeScreen({ navigation }: Props) {
             <Text style={styles.adviseLabel}>{t("advice")}</Text>
             <Text style={styles.adviseBody}>{advice}</Text>
 
-            <Pressable
-              style={styles.safetyCard}
-              onPress={() => navigation.navigate("Safety")}
-            >
-              <View style={styles.safetyIcon}>
-                <Ionicons name="warning-outline" size={22} color="#B91C1C" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.safetyTitle}>{t("needHelp")}</Text>
-                <Text style={styles.safetyText}>{t("crisisResources")}</Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={colors.textMuted}
-              />
-            </Pressable>
+            {showImmediateHelp ? (
+              <Pressable
+                style={styles.safetyCard}
+                onPress={() => navigation.navigate("Safety")}
+              >
+                <View style={styles.safetyIcon}>
+                  <Ionicons name="warning-outline" size={22} color="#B91C1C" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.safetyTitle}>{t("immediateHelp")}</Text>
+                  <Text style={styles.safetyText}>{t("crisisResources")}</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            ) : null}
 
             <Pressable
               style={styles.actionBtn}
