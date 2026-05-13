@@ -17,6 +17,7 @@ import { AIDiaryScreen } from '../screens/AiDiaryScreen';
 import { AiChatScreen } from '../screens/AiChatScreen';
 import { AiQuizScreen } from '../screens/AiQuizScreen';
 import { CommunityScreen } from '../screens/CommunityScreen';
+import { GoalsScreen } from '../screens/GoalsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
 import { AdminPanelScreen } from '../screens/AdminPanelScreen';
@@ -110,6 +111,15 @@ function MainTabsNavigator() {
           ),
         }}
       />
+      <Tab.Screen
+        name="Goals"
+        component={GoalsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="flag-outline" size={size} color={color} />
+          ),
+        }}
+      />
       {showAdminPanel ? (
         <Tab.Screen
           name="Admin"
@@ -166,6 +176,11 @@ export function AppNavigator() {
             journal_private_default: true,
             anonymous_community_default: false,
             share_ai_insights: false,
+            community_profile_visibility: 'members',
+            ai_processing_consent: false,
+            privacy_notice_accepted: false,
+            privacy_notice_version: null,
+            privacy_notice_accepted_at: null,
           },
           ai_tone: 'calm',
           onboarding_completed: true,

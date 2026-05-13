@@ -16,3 +16,6 @@ from app.models.safety_flag import SafetyFlag
 
 from app.models.community_report import CommunityReport
 from app.models.community_reaction import CommunityReaction
+
+from app.models.goal import Goal
+from app.models.goal_completion import GoalCompletion

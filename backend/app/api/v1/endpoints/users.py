@@ -15,6 +15,8 @@ from app.models.community_comment import CommunityComment
 from app.models.community_post import CommunityPost
 from app.models.community_reaction import CommunityReaction
 from app.models.community_report import CommunityReport
+from app.models.goal import Goal
+from app.models.goal_completion import GoalCompletion
 from app.models.journal import JournalEntry
 from app.models.reminder_preference import ReminderPreference
 from app.models.safety_flag import SafetyFlag
@@ -290,6 +292,7 @@ def _full_export(db: Session, user: User) -> dict:
         "ai_quiz_results": insights_export["ai_quiz_results"],
         "chat_sessions": insights_export["chat_sessions"],
         "insights_export": insights_export,
+        "goals": _goals_export(db, user),
         "community": {
             "posts": [_model_dict(post) for post in _community_posts(db, user.id)],
             "comments": [
@@ -562,6 +565,25 @@ def _quiz_sessions(db: Session, user_id: int) -> list[AIQuizSession]:
         .order_by(AIQuizSession.created_at.desc())
         .all()
     )
+
+
+def _goals_export(db: Session, user: User) -> dict:
+    goals = (
+        db.query(Goal)
+        .filter(Goal.user_id == user.id)
+        .order_by(Goal.created_at.desc())
+        .all()
+    )
+    return {
+        "goals": [_model_dict(goal) for goal in goals],
+        "completions": [
+            _model_dict(completion)
+            for completion in db.query(GoalCompletion)
+            .filter(GoalCompletion.user_id == user.id)
+            .order_by(GoalCompletion.created_at.desc())
+            .all()
+        ],
+    }
 
 
 def _community_posts(db: Session, user_id: int) -> list[CommunityPost]:
