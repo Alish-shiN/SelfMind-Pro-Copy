@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system/legacy';
 import { API_BASE_URL, API_PREFIX } from '../constants/config';
 import { getToken } from '../lib/storage';
 import { ApiError, apiFetch } from './client';
@@ -117,21 +118,40 @@ export function getWeeklyReflectionReport() {
 
 export async function downloadWeeklyPdfReport() {
   const token = await getToken();
-  const res = await fetch(`${API_BASE_URL}${API_PREFIX}/users/me/export?export_type=weekly_report&format=pdf`, {
-    headers: {
-      Accept: 'application/pdf',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new ApiError(body || res.statusText, res.status, body);
+  const fileName = 'selfmind_weekly_report.pdf';
+  const baseDirectory = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+  if (!baseDirectory) {
+    throw new ApiError('Local file storage is unavailable on this device.', 0);
   }
-  const blob = await res.blob();
+
+  const localUri = `${baseDirectory}${fileName}`;
+  const result = await FileSystem.downloadAsync(
+    `${API_BASE_URL}${API_PREFIX}/users/me/export?export_type=weekly_report&format=pdf`,
+    localUri,
+    {
+      headers: {
+        Accept: 'application/pdf',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    },
+  );
+
+  const contentType = result.headers['content-type'] ?? result.headers['Content-Type'] ?? '';
+  if (result.status < 200 || result.status >= 300) {
+    await FileSystem.deleteAsync(result.uri, { idempotent: true });
+    throw new ApiError(`Could not download weekly PDF report (HTTP ${result.status}).`, result.status);
+  }
+  if (!contentType.toLowerCase().includes('application/pdf')) {
+    await FileSystem.deleteAsync(result.uri, { idempotent: true });
+    throw new ApiError('Weekly report download did not return a PDF file.', 0, contentType);
+  }
+
+  const info = await FileSystem.getInfoAsync(result.uri);
   return {
-    blob,
-    size: blob.size,
-    contentType: blob.type || 'application/pdf',
+    localUri: result.uri,
+    fileName,
+    size: info.exists ? info.size ?? 0 : 0,
+    contentType,
   };
 }
 

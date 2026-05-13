@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sharing from 'expo-sharing';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
@@ -344,11 +345,26 @@ function PrivacyCenterModal({ visible, preferences, onClose, onSaved, onDeleted 
 
   const downloadPdfReport = async () => {
     setSaving(true);
-    setExportStatus('Preparing weekly PDF report…');
+    setExportStatus('Generating PDF report...');
     try {
       const pdf = await downloadWeeklyPdfReport();
-      setExportStatus(`Weekly PDF ready (${Math.max(1, Math.round(pdf.size / 1024))} KB).`);
-      Alert.alert('Weekly PDF report ready', 'PDF summary generated successfully. It includes a reflection disclaimer and should be stored privately.');
+      const sizeKb = Math.max(1, Math.round(pdf.size / 1024));
+      setExportStatus(`PDF saved to ${pdf.localUri} (${sizeKb} KB). Opening share options...`);
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(pdf.localUri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+          dialogTitle: 'Open or share SelfMind weekly report',
+        });
+        setExportStatus(`PDF report was generated and saved to ${pdf.localUri}.`);
+        Alert.alert('PDF report was generated.', 'You can reopen it from your device share destination if you saved it.');
+      } else {
+        setExportStatus(`Sharing is unavailable. PDF saved to ${pdf.localUri}.`);
+        Alert.alert('PDF report saved', `Sharing is unavailable on this device. The file was saved temporarily at:
+${pdf.localUri}`);
+      }
     } catch (e) {
       const message = e instanceof ApiError ? e.message : 'Could not generate weekly PDF report.';
       setExportStatus(message);
