@@ -1,4 +1,5 @@
 from sqlalchemy import ForeignKey, Float, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -22,5 +23,18 @@ class AIQuizResult(TimestampMixin, Base):
     insight: Mapped[str] = mapped_column(Text, nullable=False)
     recommendation: Mapped[str] = mapped_column(Text, nullable=False)
     practice: Mapped[str] = mapped_column(Text, nullable=False)
+    quiz_type: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
+    answers_snapshot: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    recommendations: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    micro_practices: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    action_plan: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    trend_direction: Mapped[str | None] = mapped_column(
+        String(30), nullable=True, index=True
+    )
+    previous_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    score_difference: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trend_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     session = relationship("AIQuizSession", back_populates="result")

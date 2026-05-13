@@ -5,7 +5,9 @@ export type RootStackParamList = {
   Welcome: undefined;
   Register: undefined;
   MainTabs: undefined;
+  PersonalizationOnboarding: undefined;
   Profile: undefined;
+  ArchiveSearch: { initialTab?: 'journals' | 'insights' | 'favorites' } | undefined;
 };
 
 export type HomeStackParamList = {
