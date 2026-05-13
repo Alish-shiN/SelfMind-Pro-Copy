@@ -16,6 +16,7 @@ import { getMoodAnalytics, MoodAnalytics } from '../api/analytics';
 import { ApiError } from '../api/client';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 
 const MOOD_EMOJI: Record<string, string> = {
   joy: '😊', calm: '😌', stress: '😤', anxiety: '😰',
@@ -117,6 +118,7 @@ function MiniHeatmap({ days }: { days: MoodAnalytics['emotion_heatmap'] }) {
 
 export function DashboardScreen({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -243,11 +245,11 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Mood card */}
         <View style={styles.moodCard}>
           <View style={styles.moodLeft}>
-            <Text style={styles.moodCardLabel}>Current Mood</Text>
+            <Text style={styles.moodCardLabel}>{t('currentMood')}</Text>
             <Text style={styles.moodCardEmotion}>
               {analysis
                 ? analysis.emotion_label.charAt(0).toUpperCase() + analysis.emotion_label.slice(1)
-                : 'No data yet'}
+                : t('noDataYet')}
             </Text>
             {analysis && (
               <View style={styles.sentimentPill}>
@@ -404,14 +406,14 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
               <Ionicons name="search-outline" size={20} color={colors.coral} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.archiveTitle}>Search your history</Text>
-              <Text style={styles.archiveSubtitle}>Find past journal entries, insights, moods, and saved reflections.</Text>
+              <Text style={styles.archiveTitle}>{t('searchHistory')}</Text>
+              <Text style={styles.archiveSubtitle}>{t('searchHistorySubtitle')}</Text>
             </View>
             <Pressable
               style={styles.archiveButton}
               onPress={() => navigation.navigate('ArchiveSearch')}
             >
-              <Text style={styles.archiveButtonText}>Open archive</Text>
+              <Text style={styles.archiveButtonText}>{t('openArchive')}</Text>
             </Pressable>
           </View>
         </View>
@@ -455,7 +457,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {analytics ? (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Mood Analytics</Text>
+              <Text style={styles.sectionTitle}>{t('moodAnalytics')}</Text>
               <Text style={styles.sectionHint}>{analytics.start_date} → {analytics.end_date}</Text>
             </View>
 
@@ -551,7 +553,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Latest analysis */}
         {analysis && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Latest Insight</Text>
+            <Text style={styles.sectionTitle}>{t('latestInsight')}</Text>
             <View style={styles.insightCard}>
               <Text style={styles.insightSummary}>{analysis.short_summary}</Text>
               <View style={styles.insightDivider} />
@@ -560,7 +562,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                 <Text style={styles.insightRec}>{analysis.recommendation}</Text>
               </View>
               <View style={styles.confidenceRow}>
-                <Text style={styles.confidenceLabel}>Confidence</Text>
+                <Text style={styles.confidenceLabel}>{t('confidence')}</Text>
                 <View style={styles.confidenceBarWrap}>
                   <View
                     style={[
@@ -580,7 +582,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Recent entries */}
         {(data?.recent_entries?.length ?? 0) > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Journal Entries</Text>
+            <Text style={styles.sectionTitle}>{t('recentJournalEntries')}</Text>
             {data!.recent_entries.map((entry) => (
               <View key={entry.id} style={styles.entryCard}>
                 <View style={styles.entryLeft}>
@@ -603,9 +605,9 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {!analysis && !loading && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📖</Text>
-            <Text style={styles.emptyTitle}>Start your journey</Text>
+            <Text style={styles.emptyTitle}>{t('startJourney')}</Text>
             <Text style={styles.emptySub}>
-              Write your first journal entry to unlock mood insights and personalized advice.
+              {t('startJourneySub')}
             </Text>
           </View>
         )}

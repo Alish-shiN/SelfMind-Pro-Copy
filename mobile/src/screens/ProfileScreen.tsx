@@ -38,6 +38,7 @@ import {
 import type { UserResponse } from '../api/auth';
 import { getReminderPreferences, ReminderPreference, updateReminderPreferences } from '../api/reminders';
 import { scheduleReminderPreferences } from '../lib/notifications';
+import { supportedLanguages, useTranslation } from '../i18n/I18nContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 type ReminderTimeField = 'journal_time' | 'mood_checkin_time' | 'ai_quiz_time';
@@ -179,6 +180,7 @@ function PersonalizationPreferencesModal({
 }) {
   const [draft, setDraft] = useState<UserPreferences | null>(preferences);
   const [saving, setSaving] = useState(false);
+  const { language, setLanguage, t } = useTranslation();
 
   useEffect(() => {
     if (visible) setDraft(preferences);
@@ -212,13 +214,26 @@ function PersonalizationPreferencesModal({
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={styles.prefModalSafe} edges={['top', 'bottom']}>
         <View style={styles.prefModalTop}>
-          <Pressable onPress={onClose}><Text style={styles.timeCancelText}>Cancel</Text></Pressable>
-          <Text style={styles.title}>AI & Reflection</Text>
+          <Pressable onPress={onClose}><Text style={styles.timeCancelText}>{t('cancel')}</Text></Pressable>
+          <Text style={styles.title}>{t('personalizationPrefs')}</Text>
           <Pressable onPress={save} disabled={saving}>
-            {saving ? <ActivityIndicator color={colors.coral} /> : <Text style={styles.prefSaveText}>Save</Text>}
+            {saving ? <ActivityIndicator color={colors.coral} /> : <Text style={styles.prefSaveText}>{t('save')}</Text>}
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.prefModalBody}>
+          <Text style={styles.sectionLabel}>{t('language')}</Text>
+          <View style={styles.prefChipWrap}>
+            {supportedLanguages.map((item) => (
+              <Pressable
+                key={item.key}
+                style={[styles.prefChip, language === item.key && styles.prefChipOn]}
+                onPress={() => setLanguage(item.key)}
+              >
+                <Text style={[styles.prefChipText, language === item.key && styles.prefChipTextOn]}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
           <Text style={styles.sectionLabel}>Emotional goals</Text>
           <View style={styles.prefChipWrap}>
             {GOAL_OPTIONS.map((goal) => (
@@ -234,7 +249,7 @@ function PersonalizationPreferencesModal({
 
           <Text style={styles.sectionLabel}>Privacy</Text>
           <PreferenceToggle label="Private diary entries by default" value={draft.privacy_preferences.journal_private_default} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, journal_private_default: !draft.privacy_preferences.journal_private_default } })} />
-          <PreferenceToggle label="Anonymous community by default" value={draft.privacy_preferences.anonymous_community_default} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, anonymous_community_default: !draft.privacy_preferences.anonymous_community_default } })} />
+          <PreferenceToggle label={t('anonymousCommunityDefault')} value={draft.privacy_preferences.anonymous_community_default} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, anonymous_community_default: !draft.privacy_preferences.anonymous_community_default } })} />
           <PreferenceToggle label="Share AI insights for personalization" value={draft.privacy_preferences.share_ai_insights} onPress={() => setDraft({ ...draft, privacy_preferences: { ...draft.privacy_preferences, share_ai_insights: !draft.privacy_preferences.share_ai_insights, ai_processing_consent: !draft.privacy_preferences.share_ai_insights } })} />
         </ScrollView>
       </SafeAreaView>
@@ -274,6 +289,7 @@ function PrivacyCenterModal({ visible, preferences, onClose, onSaved, onDeleted 
   onSaved: (preferences: UserPreferences) => void;
   onDeleted: () => Promise<void> | void;
 }) {
+  const { t } = useTranslation();
   const [center, setCenter] = useState<PrivacyCenterResponse | null>(null);
   const [draft, setDraft] = useState<UserPreferences | null>(preferences);
   const [saving, setSaving] = useState(false);
@@ -400,15 +416,15 @@ ${pdf.localUri}`);
       <SafeAreaView style={styles.prefModalSafe} edges={['top', 'bottom']}>
         <View style={styles.prefModalTop}>
           <Pressable onPress={onClose}><Text style={styles.timeCancelText}>Close</Text></Pressable>
-          <Text style={styles.title}>Privacy Center</Text>
+          <Text style={styles.title}>{t('privacyCenter')}</Text>
           <Pressable onPress={save} disabled={saving}>
-            {saving ? <ActivityIndicator color={colors.coral} /> : <Text style={styles.prefSaveText}>Save</Text>}
+            {saving ? <ActivityIndicator color={colors.coral} /> : <Text style={styles.prefSaveText}>{t('save')}</Text>}
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.prefModalBody}>
           <View style={styles.privacyNoticeCard}>
             <Ionicons name="shield-checkmark-outline" size={24} color={colors.coral} />
-            <Text style={styles.privacyTitle}>{center?.notice.title ?? 'SelfMind Pro Privacy Center'}</Text>
+            <Text style={styles.privacyTitle}>{center?.notice.title ?? t('privacyTitle')}</Text>
             <Text style={styles.privacyText}>{center?.notice.summary ?? 'We treat emotional data as sensitive-like data.'}</Text>
             <Text style={styles.privacyText}>{center?.notice.emotional_data_notice ?? 'Journal entries, mood scores, AI reflections, and community activity can reveal emotional patterns and should be protected.'}</Text>
           </View>
@@ -419,7 +435,7 @@ ${pdf.localUri}`);
           <PreferencePicker title="Community profile visibility" options={COMMUNITY_VISIBILITY_OPTIONS} value={draft.privacy_preferences.community_profile_visibility} onSelect={(value) => setPrivacy({ community_profile_visibility: value as CommunityProfileVisibility })} />
 
           <Text style={styles.sectionLabel}>AI processing and storage</Text>
-          <PreferenceToggle label="Allow AI insights to personalize future support" value={draft.privacy_preferences.share_ai_insights} onPress={() => setPrivacy({ share_ai_insights: !draft.privacy_preferences.share_ai_insights, ai_processing_consent: !draft.privacy_preferences.share_ai_insights })} />
+          <PreferenceToggle label={t('allowAiInsights')} value={draft.privacy_preferences.share_ai_insights} onPress={() => setPrivacy({ share_ai_insights: !draft.privacy_preferences.share_ai_insights, ai_processing_consent: !draft.privacy_preferences.share_ai_insights })} />
           {(center?.notice.ai_processing ?? []).map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
           {(center?.notice.stored_data ?? []).map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
 
@@ -435,7 +451,7 @@ ${pdf.localUri}`);
             </Pressable>
             <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={() => exportData('insights', 'Insights archive export')} disabled={saving}>
               <Ionicons name="sparkles-outline" size={18} color={colors.coral} />
-              <Text style={styles.secondaryActionText}>Export insights archive</Text>
+              <Text style={styles.secondaryActionText}>{t('exportInsights')}</Text>
             </Pressable>
             <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={() => exportData('full', 'Full personal data export')} disabled={saving}>
               <Ionicons name="archive-outline" size={18} color={colors.coral} />
@@ -455,7 +471,7 @@ ${pdf.localUri}`);
             </Pressable>
             <Pressable style={[styles.privacyActionBtn, styles.dangerActionBtn]} onPress={confirmDelete} disabled={saving}>
               <Ionicons name="trash-outline" size={18} color="#fff" />
-              <Text style={styles.privacyActionText}>Delete account + all data</Text>
+              <Text style={styles.privacyActionText}>{t('deleteAccount')}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -466,6 +482,7 @@ ${pdf.localUri}`);
 
 export function ProfileScreen({ navigation }: Props) {
   const { signOut } = useAuth();
+  const { t, language } = useTranslation();
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -561,7 +578,7 @@ export function ProfileScreen({ navigation }: Props) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.title}>{t('profile')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
@@ -606,7 +623,7 @@ export function ProfileScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Account</Text>
+              <Text style={styles.sectionLabel}>{t('account')}</Text>
               <View style={styles.infoCard}>
                 <View style={styles.infoRow}>
                   <Ionicons name="mail-outline" size={20} color={colors.coral} />
@@ -619,7 +636,7 @@ export function ProfileScreen({ navigation }: Props) {
                 <View style={styles.infoRow}>
                   <Ionicons name="person-outline" size={20} color={colors.coral} />
                   <View style={styles.infoTextWrap}>
-                    <Text style={styles.infoLabel}>Username</Text>
+                    <Text style={styles.infoLabel}>{t('username')}</Text>
                     <Text style={styles.infoValue}>{user.username}</Text>
                   </View>
                 </View>
@@ -627,7 +644,7 @@ export function ProfileScreen({ navigation }: Props) {
                 <View style={styles.infoRow}>
                   <Ionicons name="calendar-outline" size={20} color={colors.coral} />
                   <View style={styles.infoTextWrap}>
-                    <Text style={styles.infoLabel}>Member since</Text>
+                    <Text style={styles.infoLabel}>{t('memberSince')}</Text>
                     <Text style={styles.infoValue}>{formatJoined(user.created_at)}</Text>
                   </View>
                 </View>
@@ -635,13 +652,13 @@ export function ProfileScreen({ navigation }: Props) {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Reflection tools</Text>
+              <Text style={styles.sectionLabel}>{t('reflectionTools')}</Text>
               <View style={styles.infoCard}>
                 <Pressable style={styles.infoRow} onPress={() => navigation.navigate('ArchiveSearch')}>
                   <Ionicons name="search-outline" size={20} color={colors.coral} />
                   <View style={styles.infoTextWrap}>
-                    <Text style={styles.infoLabel}>Archive & Search</Text>
-                    <Text style={styles.infoValue}>Find past journals, insights, moods, and saved reflections</Text>
+                    <Text style={styles.infoLabel}>{t('archiveSearch')}</Text>
+                    <Text style={styles.infoValue}>{t('archiveSearchDesc')}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                 </Pressable>
@@ -653,12 +670,12 @@ export function ProfileScreen({ navigation }: Props) {
 
             {preferences ? (
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Personalization / AI & Reflection Preferences</Text>
+                <Text style={styles.sectionLabel}>{t('personalizationPrefs')}</Text>
                 <View style={styles.infoCard}>
                   <View style={styles.infoRow}>
                     <Ionicons name="sparkles-outline" size={20} color={colors.coral} />
                     <View style={styles.infoTextWrap}>
-                      <Text style={styles.infoLabel}>AI tone</Text>
+                      <Text style={styles.infoLabel}>{t('aiTone')}</Text>
                       <Text style={styles.infoValue}>{preferences.ai_tone}</Text>
                     </View>
                   </View>
@@ -666,7 +683,7 @@ export function ProfileScreen({ navigation }: Props) {
                   <View style={styles.infoRow}>
                     <Ionicons name="journal-outline" size={20} color={colors.coral} />
                     <View style={styles.infoTextWrap}>
-                      <Text style={styles.infoLabel}>Reflection format</Text>
+                      <Text style={styles.infoLabel}>{t('reflectionFormat')}</Text>
                       <Text style={styles.infoValue}>{preferences.preferred_reflection_format}</Text>
                     </View>
                   </View>
@@ -674,15 +691,23 @@ export function ProfileScreen({ navigation }: Props) {
                   <View style={styles.infoRow}>
                     <Ionicons name="heart-outline" size={20} color={colors.coral} />
                     <View style={styles.infoTextWrap}>
-                      <Text style={styles.infoLabel}>Goals</Text>
+                      <Text style={styles.infoLabel}>{t('goals')}</Text>
                       <Text style={styles.infoValue}>
                         {preferences.emotional_goals.length ? preferences.emotional_goals.map((goal) => goal.replace(/_/g, ' ')).join(', ') : 'Not selected yet'}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.divider} />
+                  <View style={styles.infoRow}>
+                    <Ionicons name="language-outline" size={20} color={colors.coral} />
+                    <View style={styles.infoTextWrap}>
+                      <Text style={styles.infoLabel}>{t('language')}</Text>
+                      <Text style={styles.infoValue}>{supportedLanguages.find((item) => item.key === language)?.label ?? 'English'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
                   <Pressable style={styles.editPrefsRow} onPress={() => setPreferencesModalVisible(true)}>
-                    <Text style={styles.editPrefsText}>Edit personalization preferences</Text>
+                    <Text style={styles.editPrefsText}>{t('editPersonalization')}</Text>
                     <Ionicons name="chevron-forward" size={18} color={colors.coral} />
                   </Pressable>
                 </View>
@@ -719,7 +744,7 @@ export function ProfileScreen({ navigation }: Props) {
                   </View>
                   <View style={styles.divider} />
                   <Pressable style={styles.editPrefsRow} onPress={() => setPrivacyModalVisible(true)}>
-                    <Text style={styles.editPrefsText}>Open privacy center</Text>
+                    <Text style={styles.editPrefsText}>{t('openPrivacyCenter')}</Text>
                     <Ionicons name="chevron-forward" size={18} color={colors.coral} />
                   </Pressable>
                 </View>
@@ -729,12 +754,12 @@ export function ProfileScreen({ navigation }: Props) {
 
             {reminders ? (
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Reminders</Text>
+                <Text style={styles.sectionLabel}>{t('reminders')}</Text>
                 <View style={styles.infoCard}>
                   <ReminderRow
                     icon="notifications-outline"
-                    label="All reminders"
-                    value={reminders.reminders_enabled ? 'Enabled' : 'Paused'}
+                    label={t('allReminders')}
+                    value={reminders.reminders_enabled ? t('enabled') : t('paused')}
                     enabled={reminders.reminders_enabled}
                     disabled={savingReminder}
                     onPress={() => toggleReminder('reminders_enabled', !reminders.reminders_enabled)}
@@ -742,7 +767,7 @@ export function ProfileScreen({ navigation }: Props) {
                   <View style={styles.divider} />
                   <ReminderRow
                     icon="journal-outline"
-                    label="Daily journal"
+                    label={t('dailyJournal')}
                     value={reminders.journal_time}
                     enabled={reminders.journal_enabled}
                     disabled={savingReminder}
@@ -752,7 +777,7 @@ export function ProfileScreen({ navigation }: Props) {
                   <View style={styles.divider} />
                   <ReminderRow
                     icon="happy-outline"
-                    label="Mood check-in"
+                    label={t('moodCheckIn')}
                     value={reminders.mood_checkin_time}
                     enabled={reminders.mood_checkin_enabled}
                     disabled={savingReminder}
@@ -762,7 +787,7 @@ export function ProfileScreen({ navigation }: Props) {
                   <View style={styles.divider} />
                   <ReminderRow
                     icon="help-circle-outline"
-                    label="AI self-check"
+                    label={t('aiSelfCheck')}
                     value={reminders.ai_quiz_time}
                     enabled={reminders.ai_quiz_enabled}
                     disabled={savingReminder}
@@ -780,7 +805,7 @@ export function ProfileScreen({ navigation }: Props) {
 
         <Pressable style={styles.signOutBtn} onPress={onSignOut}>
           <Ionicons name="log-out-outline" size={20} color="#fff" />
-          <Text style={styles.signOutText}>Sign out</Text>
+          <Text style={styles.signOutText}>{t('signOut')}</Text>
         </Pressable>
       </ScrollView>
       <PersonalizationPreferencesModal

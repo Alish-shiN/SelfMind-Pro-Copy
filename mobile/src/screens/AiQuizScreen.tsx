@@ -28,6 +28,7 @@ import {
   submitAiQuiz,
 } from '../api/aiQuiz';
 import { createGoal } from '../api/goals';
+import { useTranslation } from '../i18n/I18nContext';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'AiQuiz'>;
 type ScreenMode = 'landing' | 'taking' | 'result';
@@ -42,6 +43,7 @@ function titleCase(value?: string | null) {
 
 export function AiQuizScreen({ navigation }: Props) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
 
   const [mode, setMode] = useState<ScreenMode>('landing');
   const [loadingLanding, setLoadingLanding] = useState(true);
@@ -203,7 +205,7 @@ export function AiQuizScreen({ navigation }: Props) {
         <Pressable onPress={() => (mode === 'landing' ? navigation.goBack() : goToLanding())} hitSlop={12}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>AI Quiz</Text>
+        <Text style={styles.title}>{t('aiQuiz')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
@@ -235,25 +237,25 @@ export function AiQuizScreen({ navigation }: Props) {
             <View style={styles.stack}>
               <View style={styles.heroCard}>
                 <Text style={styles.heroEmoji}>🧠</Text>
-                <Text style={styles.heroTitle}>Choose a self-reflection quiz</Text>
-                <Text style={styles.heroText}>Pick the area you want to understand today. Nothing starts until you tap start.</Text>
+                <Text style={styles.heroTitle}>{t('chooseQuiz')}</Text>
+                <Text style={styles.heroText}>{t('chooseQuizSub')}</Text>
                 {latestHistory ? (
                   <Text style={styles.latestText}>
                     Latest: {latestHistory.quiz_title} • {Math.round(latestHistory.score)} • {titleCase(latestHistory.severity_level)}
                   </Text>
                 ) : (
-                  <Text style={styles.latestText}>No completed quizzes yet. Start your first quiz when you feel ready.</Text>
+                  <Text style={styles.latestText}>{t('noCompletedQuizzes')}</Text>
                 )}
                 <Pressable
                   style={[styles.submitBtn, generating && { opacity: 0.7 }]}
                   onPress={() => startQuiz(selectedQuiz?.key)}
                   disabled={generating}
                 >
-                  <Text style={styles.submitText}>{generating ? 'Starting...' : history.length ? 'Start selected quiz' : 'Start your first quiz'}</Text>
+                  <Text style={styles.submitText}>{generating ? 'Starting...' : history.length ? t('startSelectedQuiz') : t('startFirstQuiz')}</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.sectionLabel}>Available quiz types</Text>
+              <Text style={styles.sectionLabel}>{t('availableQuizTypes')}</Text>
               {quizTypes.map((item) => {
                 const selected = selectedQuizType === item.key;
                 return (
@@ -274,14 +276,14 @@ export function AiQuizScreen({ navigation }: Props) {
                       <Text style={styles.metaText}>{item.estimated_minutes} min</Text>
                       {item.latest_score != null ? <Text style={styles.metaText}>Last score {Math.round(item.latest_score)}</Text> : null}
                       <Pressable style={styles.smallBtn} onPress={() => startQuiz(item.key)} disabled={generating}>
-                        <Text style={styles.smallBtnText}>{item.status === 'not_started' ? 'Start' : 'Retake'}</Text>
+                        <Text style={styles.smallBtnText}>{item.status === 'not_started' ? t('startFirstQuiz') : t('retakeQuiz')}</Text>
                       </Pressable>
                     </View>
                   </Pressable>
                 );
               })}
 
-              <Text style={styles.sectionLabel}>Quiz history</Text>
+              <Text style={styles.sectionLabel}>{t('quizHistory')}</Text>
               {history.length ? (
                 history.map((item) => (
                   <Pressable key={item.result_id} style={styles.historyCard} onPress={() => viewResult(item.result_id)}>
@@ -297,10 +299,10 @@ export function AiQuizScreen({ navigation }: Props) {
               ) : (
                 <View style={styles.emptyCard}>
                   <Text style={styles.emptyEmoji}>🌱</Text>
-                  <Text style={styles.emptyTitle}>No quiz history yet</Text>
-                  <Text style={styles.emptyText}>Complete your first quiz to see score trends, recommendations, and action plans here.</Text>
+                  <Text style={styles.emptyTitle}>{t('noQuizHistoryYet')}</Text>
+                  <Text style={styles.emptyText}>{t('noQuizHistorySub')}</Text>
                   <Pressable style={styles.submitBtn} onPress={() => startQuiz(selectedQuiz?.key)} disabled={generating}>
-                    <Text style={styles.submitText}>Start your first quiz</Text>
+                    <Text style={styles.submitText}>{t('startFirstQuiz')}</Text>
                   </Pressable>
                 </View>
               )}
@@ -337,7 +339,7 @@ export function AiQuizScreen({ navigation }: Props) {
             <View style={styles.footer}>
               <Text style={styles.progress}>{answeredCount}/{questions.length} answered</Text>
               <Pressable style={[styles.submitBtn, !canSubmit && { opacity: 0.6 }]} onPress={submit} disabled={!canSubmit}>
-                <Text style={styles.submitText}>{submitting ? 'Submitting...' : 'Submit quiz'}</Text>
+                <Text style={styles.submitText}>{submitting ? t('loading') : t('submitQuiz')}</Text>
               </Pressable>
             </View>
           </View>
@@ -354,9 +356,9 @@ export function AiQuizScreen({ navigation }: Props) {
                 <Text style={styles.resultTitle}>{titleCase(result.quiz_type)} result</Text>
                 <Text style={styles.resultScore}>{Math.round(result.overall_score)} / 100</Text>
                 <Text style={styles.resultSeverity}>{titleCase(result.severity_level)}</Text>
-                <Text style={styles.resultSectionLabel}>Interpretation</Text>
+                <Text style={styles.resultSectionLabel}>{t('interpretation')}</Text>
                 <Text style={styles.resultText}>{result.insight}</Text>
-                <Text style={styles.resultSectionLabel}>Trend comparison</Text>
+                <Text style={styles.resultSectionLabel}>{t('trendComparison')}</Text>
                 <Text style={styles.resultText}>
                   Previous: {result.previous_score == null ? '—' : Math.round(result.previous_score)} • Current: {Math.round(result.overall_score)} • Difference: {result.score_difference == null ? '—' : result.score_difference > 0 ? `+${result.score_difference}` : result.score_difference}
                 </Text>
@@ -364,14 +366,14 @@ export function AiQuizScreen({ navigation }: Props) {
               </View>
 
               <View style={styles.resultCard}>
-                <Text style={styles.resultSectionLabel}>Recommendations</Text>
+                <Text style={styles.resultSectionLabel}>{t('recommendations')}</Text>
                 {(result.recommendations?.length ? result.recommendations : [result.recommendation]).map((item) => (
                   <Text key={item} style={styles.bullet}>• {item}</Text>
                 ))}
               </View>
 
               <View style={styles.resultCard}>
-                <Text style={styles.resultSectionLabel}>Micro-practices</Text>
+                <Text style={styles.resultSectionLabel}>{t('microPractices')}</Text>
                 {(result.micro_practices || []).map((practice) => (
                   <View key={practice.title} style={styles.practiceCard}>
                     <Text style={styles.practiceTitle}>{practice.title} • {practice.estimated_time}</Text>
@@ -383,18 +385,18 @@ export function AiQuizScreen({ navigation }: Props) {
 
               {result.action_plan ? (
                 <View style={styles.resultCard}>
-                  <Text style={styles.resultSectionLabel}>Personalized action plan</Text>
+                  <Text style={styles.resultSectionLabel}>{t('personalizedActionPlan')}</Text>
                   {result.action_plan.steps.map((step, index) => (
                     <Text key={step} style={styles.bullet}>{index + 1}. {step}</Text>
                   ))}
-                  <Text style={styles.resultSectionLabel}>Reflection prompt</Text>
+                  <Text style={styles.resultSectionLabel}>{t('reflectionPrompt')}</Text>
                   <Text style={styles.resultText}>{result.action_plan.reflection_prompt}</Text>
                   {result.action_plan.suggested_goal ? (
                     <View style={styles.goalBox}>
-                      <Text style={styles.practiceTitle}>Suggested goal</Text>
+                      <Text style={styles.practiceTitle}>{t('suggestedGoal')}</Text>
                       <Text style={styles.resultText}>{result.action_plan.suggested_goal}</Text>
                       <Pressable style={styles.smallBtn} onPress={createSuggestedGoal} disabled={creatingGoal}>
-                        <Text style={styles.smallBtnText}>{creatingGoal ? 'Creating...' : 'Create this goal'}</Text>
+                        <Text style={styles.smallBtnText}>{creatingGoal ? t('loading') : t('createThisGoal')}</Text>
                       </Pressable>
                     </View>
                   ) : null}
@@ -404,10 +406,10 @@ export function AiQuizScreen({ navigation }: Props) {
 
               <View style={styles.footer}>
                 <Pressable style={styles.submitBtn} onPress={() => startQuiz(result.quiz_type || selectedQuizType)} disabled={generating}>
-                  <Text style={styles.submitText}>{generating ? 'Starting...' : 'Retake quiz'}</Text>
+                  <Text style={styles.submitText}>{generating ? t('loading') : t('retakeQuiz')}</Text>
                 </Pressable>
                 <Pressable style={styles.secondaryBtn} onPress={goToLanding}>
-                  <Text style={styles.secondaryText}>Back to quiz landing</Text>
+                  <Text style={styles.secondaryText}>{t('backToQuizLanding')}</Text>
                 </Pressable>
               </View>
             </View>

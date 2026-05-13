@@ -21,6 +21,7 @@ import { getUserPreferences } from '../api/user';
 import { scheduleJournalEntryReminder } from '../lib/notifications';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '../navigation/types';
 
@@ -62,6 +63,7 @@ const createEntry = (payload: {
   notification_title?: string | null;
   notification_time?: string | null;
   entry_date?: string;
+  language?: string;
 }) =>
   apiFetch<JournalEntry>('/journal/', {
     method: 'POST', auth: true, body: JSON.stringify(payload),
@@ -70,8 +72,8 @@ const createEntry = (payload: {
 const deleteEntry = (id: number) =>
   apiFetch<void>(`/journal/${id}`, { method: 'DELETE', auth: true });
 
-const getAnalysis = (id: number) =>
-  apiFetch<JournalAnalysis>(`/analysis/journal/${id}`, { method: 'GET', auth: true });
+const getAnalysis = (id: number, language = 'en') =>
+  apiFetch<JournalAnalysis>(`/analysis/journal/${id}?language=${encodeURIComponent(language)}`, { method: 'GET', auth: true });
 
 // ─── Mood picker ─────────────────────────────────────────────────────────────
 const MOOD_LABELS = ['😞', '😟', '😐', '🙂', '😊', '😄', '🌟', '💪', '🚀', '🤩'];
@@ -137,6 +139,7 @@ function TimePickerModal({
   onCancel: () => void;
   onSelect: (time: string) => void;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState(normalizeTime(value));
 
   useEffect(() => {
@@ -175,10 +178,10 @@ function TimePickerModal({
           </View>
           <View style={neStyles.timeModalActions}>
             <Pressable style={neStyles.timeCancelBtn} onPress={onCancel}>
-              <Text style={neStyles.timeCancelText}>Cancel</Text>
+              <Text style={neStyles.timeCancelText}>{t('cancel')}</Text>
             </Pressable>
             <Pressable style={neStyles.timeSaveBtn} onPress={() => onSelect(draft)}>
-              <Text style={neStyles.timeSaveText}>Save time</Text>
+              <Text style={neStyles.timeSaveText}>{t('save')}</Text>
             </Pressable>
           </View>
         </View>
@@ -205,6 +208,7 @@ function NewEntryModal({
   initialNotificationEnabled?: boolean;
   defaultPrivate: boolean;
 }) {
+  const { t, language } = useTranslation();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [moodScore, setMoodScore] = useState(5);
@@ -233,7 +237,7 @@ function NewEntryModal({
 
   const submit = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Missing fields', 'Please fill in title and content.');
+      Alert.alert(t('missingFields'), t('missingEntryFields'));
       return;
     }
     setLoading(true);
@@ -253,6 +257,7 @@ function NewEntryModal({
         notification_title: notificationTitleValue,
         notification_time: pushNotificationEnabled ? notificationTime : null,
         entry_date: initialEntryDate,
+        language,
       });
 
       if (pushNotificationEnabled) {
@@ -296,7 +301,7 @@ function NewEntryModal({
         <SafeAreaView style={neStyles.safe} edges={['top', 'bottom']}>
           <View style={neStyles.topBar}>
             <Pressable onPress={() => { reset(); onClose(); }}>
-              <Text style={neStyles.cancel}>Cancel</Text>
+              <Text style={neStyles.cancel}>{t('cancel')}</Text>
             </Pressable>
             <Text style={neStyles.modalTitle}>New Entry</Text>
             <Pressable
@@ -306,7 +311,7 @@ function NewEntryModal({
             >
               {loading
                 ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={neStyles.saveText}>Save</Text>
+                : <Text style={neStyles.saveText}>{t('save')}</Text>
               }
             </Pressable>
           </View>
@@ -543,22 +548,23 @@ const neStyles = StyleSheet.create({
 function EntryDetailModal({
   entry, onClose, onDeleted,
 }: { entry: JournalEntry; onClose: () => void; onDeleted: () => void }) {
+  const { t, language } = useTranslation();
   const [analysis, setAnalysis] = useState<JournalAnalysis | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    getAnalysis(entry.id)
+    getAnalysis(entry.id, language)
       .then(setAnalysis)
       .catch(() => setAnalysis(null))
       .finally(() => setAnalysisLoading(false));
-  }, [entry.id]);
+  }, [entry.id, language]);
 
   const handleDelete = () => {
-    Alert.alert('Delete Entry', 'Are you sure you want to delete this entry?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('deleteEntry'), t('deleteEntryConfirm'), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Delete', style: 'destructive', onPress: async () => {
+        text: t('deleteEntry'), style: 'destructive', onPress: async () => {
           setDeleting(true);
           try {
             await deleteEntry(entry.id);
@@ -599,7 +605,7 @@ function EntryDetailModal({
             </Text>
             <View style={[edStyles.moodBadge, { backgroundColor: `${moodColor}22` }]}>
               <Text style={[edStyles.moodBadgeText, { color: moodColor }]}>
-                Mood {entry.mood_score}/10
+                {t('mood')} {entry.mood_score}/10
               </Text>
             </View>
           </View>
@@ -627,7 +633,7 @@ function EntryDetailModal({
 
           {/* Analysis section */}
           <View style={edStyles.analysisSection}>
-            <Text style={edStyles.analysisSectionTitle}>🧠 AI Analysis</Text>
+            <Text style={edStyles.analysisSectionTitle}>{t('aiAnalysis')}</Text>
             {analysisLoading ? (
               <ActivityIndicator color={colors.coral} style={{ marginVertical: 16 }} />
             ) : analysis ? (
@@ -647,7 +653,7 @@ function EntryDetailModal({
                 </View>
               </View>
             ) : (
-              <Text style={edStyles.noAnalysis}>No analysis available.</Text>
+              <Text style={edStyles.noAnalysis}>{t('noAnalysis')}</Text>
             )}
           </View>
         </ScrollView>
@@ -711,6 +717,7 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'AiDiary'>;
 
 export function AIDiaryScreen({ route, navigation }: Props) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const initialEntryDate = route.params?.entryDate;
   const initialNotificationEnabled = route.params?.notificationEnabled;
 
@@ -767,14 +774,14 @@ export function AIDiaryScreen({ route, navigation }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerSub}>Your thoughts,</Text>
-          <Text style={styles.headerTitle}>AI Diary ✨</Text>
+          <Text style={styles.headerSub}>{t('yourThoughts')}</Text>
+          <Text style={styles.headerTitle}>{t('aiDiary')}</Text>
         </View>
         <View style={styles.headerRight}>
           <Pressable style={styles.searchButton} onPress={openArchive} hitSlop={8}>
             <Ionicons name="search-outline" size={18} color={colors.coral} />
           </Pressable>
-          <Text style={styles.entryCount}>{entries.length} entries</Text>
+          <Text style={styles.entryCount}>{entries.length} {t('entries')}</Text>
         </View>
       </View>
 
@@ -799,10 +806,8 @@ export function AIDiaryScreen({ route, navigation }: Props) {
           {entries.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>📝</Text>
-              <Text style={styles.emptyTitle}>No entries yet</Text>
-              <Text style={styles.emptySub}>
-                Tap the + button to write your first journal entry. AI will analyze your mood automatically.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('noEntriesYet')}</Text>
+              <Text style={styles.emptySub}>{t('noEntriesSub')}</Text>
             </View>
           ) : (
             entries.map((entry) => {

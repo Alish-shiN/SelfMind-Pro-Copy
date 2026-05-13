@@ -17,14 +17,15 @@ import { ArchiveSearchResult, ArchiveSort, ArchiveTab, searchArchive } from '../
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 import { getArchiveFavoriteIds, toggleArchiveFavoriteId } from '../lib/archiveFavorites';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArchiveSearch'>;
 
-const TABS: Array<{ key: ArchiveTab; label: string }> = [
-  { key: 'journals', label: 'Journals' },
-  { key: 'insights', label: 'Insights' },
-  { key: 'favorites', label: 'Favorites' },
+const TABS: Array<{ key: ArchiveTab; labelKey: 'journals' | 'insights' | 'favorites' }> = [
+  { key: 'journals', labelKey: 'journals' },
+  { key: 'insights', labelKey: 'insights' },
+  { key: 'favorites', labelKey: 'favorites' },
 ];
 
 function splitTags(value: string) {
@@ -61,6 +62,7 @@ function hasIntent({
 
 export function ArchiveSearchScreen({ navigation, route }: Props) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<ArchiveTab>(route.params?.initialTab ?? 'journals');
   const [query, setQuery] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -169,11 +171,11 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Archive & Search</Text>
-          <Text style={styles.subtitle}>Find journals, insights, moods, and saved reflections.</Text>
+          <Text style={styles.title}>{t('archiveTitle')}</Text>
+          <Text style={styles.subtitle}>{t('archiveSubtitle')}</Text>
         </View>
         <Pressable onPress={clearFilters} hitSlop={10}>
-          <Text style={styles.clearText}>Clear</Text>
+          <Text style={styles.clearText}>{t('clear')}</Text>
         </Pressable>
       </View>
 
@@ -187,7 +189,7 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search titles, entries, insights, moods, or tags"
+            placeholder={t('searchPlaceholder')}
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
@@ -202,27 +204,27 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
               style={[styles.tab, tab === item.key && styles.tabOn]}
               onPress={() => setTab(item.key)}
             >
-              <Text style={[styles.tabText, tab === item.key && styles.tabTextOn]}>{item.label}</Text>
+              <Text style={[styles.tabText, tab === item.key && styles.tabTextOn]}>{t(item.labelKey)}</Text>
             </Pressable>
           ))}
         </View>
 
         <View style={styles.filtersCard}>
-          <Text style={styles.filterTitle}>Filters</Text>
+          <Text style={styles.filterTitle}>{t('filters')}</Text>
           <View style={styles.filterGrid}>
-            <TextInput style={styles.filterInput} value={startDate} onChangeText={setStartDate} placeholder="Start YYYY-MM-DD" placeholderTextColor={colors.textMuted} />
-            <TextInput style={styles.filterInput} value={endDate} onChangeText={setEndDate} placeholder="End YYYY-MM-DD" placeholderTextColor={colors.textMuted} />
+            <TextInput style={styles.filterInput} value={startDate} onChangeText={setStartDate} placeholder={t('startDate')} placeholderTextColor={colors.textMuted} />
+            <TextInput style={styles.filterInput} value={endDate} onChangeText={setEndDate} placeholder={t('endDate')} placeholderTextColor={colors.textMuted} />
           </View>
-          <TextInput style={styles.filterInput} value={moodOrEmotion} onChangeText={setMoodOrEmotion} placeholder="Mood score or emotion" placeholderTextColor={colors.textMuted} />
-          <TextInput style={styles.filterInput} value={tagsRaw} onChangeText={setTagsRaw} placeholder="Tags, comma separated" placeholderTextColor={colors.textMuted} />
+          <TextInput style={styles.filterInput} value={moodOrEmotion} onChangeText={setMoodOrEmotion} placeholder={t('moodOrEmotion')} placeholderTextColor={colors.textMuted} />
+          <TextInput style={styles.filterInput} value={tagsRaw} onChangeText={setTagsRaw} placeholder={t('tagsComma')} placeholderTextColor={colors.textMuted} />
           <View style={styles.filterActions}>
             <Pressable style={[styles.chip, favoritesOnly && styles.chipOn]} onPress={() => setFavoritesOnly((value) => !value)}>
               <Ionicons name={favoritesOnly ? 'star' : 'star-outline'} size={14} color={favoritesOnly ? '#fff' : colors.coral} />
-              <Text style={[styles.chipText, favoritesOnly && styles.chipTextOn]}>Favorites only</Text>
+              <Text style={[styles.chipText, favoritesOnly && styles.chipTextOn]}>{t('favoritesOnly')}</Text>
             </Pressable>
             {(['newest', 'oldest'] as ArchiveSort[]).map((item) => (
               <Pressable key={item} style={[styles.chip, sort === item && styles.chipOn]} onPress={() => setSort(item)}>
-                <Text style={[styles.chipText, sort === item && styles.chipTextOn]}>{item}</Text>
+                <Text style={[styles.chipText, sort === item && styles.chipTextOn]}>{item === 'newest' ? t('newest') : t('oldest')}</Text>
               </Pressable>
             ))}
           </View>
@@ -246,35 +248,35 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
         {!loading && !searched && !showFavoriteEmpty ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🔎</Text>
-            <Text style={styles.emptyTitle}>Start searching your archive</Text>
-            <Text style={styles.emptyText}>Type a word or change a filter to search private journal entries, insights, moods, and tags.</Text>
+            <Text style={styles.emptyTitle}>{t('startSearchingArchive')}</Text>
+            <Text style={styles.emptyText}>{t('startSearchingArchiveSub')}</Text>
           </View>
         ) : null}
 
         {!loading && showFavoriteEmpty ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>⭐</Text>
-            <Text style={styles.emptyTitle}>You have not saved any favorites yet</Text>
-            <Text style={styles.emptyText}>Use the star on archive results to save reflections you want to revisit.</Text>
+            <Text style={styles.emptyTitle}>{t('noFavorites')}</Text>
+            <Text style={styles.emptyText}>{t('noFavoritesSub')}</Text>
           </View>
         ) : null}
 
         {showNoResults ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>🗂️</Text>
-            <Text style={styles.emptyTitle}>No entries found</Text>
-            <Text style={styles.emptyText}>Try changing your filters</Text>
+            <Text style={styles.emptyTitle}>{t('noEntriesFound')}</Text>
+            <Text style={styles.emptyText}>{t('tryChangingFilters')}</Text>
           </View>
         ) : null}
 
         {!loading && results.length ? (
           <View style={styles.resultsWrap}>
-            <Text style={styles.resultsCount}>{results.length} result{results.length === 1 ? '' : 's'}</Text>
+            <Text style={styles.resultsCount}>{results.length} {results.length === 1 ? t('result') : t('results')}</Text>
             {results.map((item) => (
               <View key={`${item.result_type}-${item.id}`} style={styles.resultCard}>
                 <View style={styles.resultTop}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.resultType}>{item.result_type === 'insight' ? 'Insight' : 'Journal'} • {new Date(item.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.resultType}>{item.result_type === 'insight' ? t('insight') : t('journal')} • {new Date(item.created_at).toLocaleDateString()}</Text>
                     <Text style={styles.resultTitle}>{item.title}</Text>
                   </View>
                   <Pressable onPress={() => toggleFavorite(item.id)} hitSlop={10}>
@@ -282,10 +284,10 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
                   </Pressable>
                 </View>
                 <Text style={styles.preview}>{item.content_preview}</Text>
-                {item.insight_summary ? <Text style={styles.insightText}>Insight: {item.insight_summary}</Text> : null}
-                {item.recommendation ? <Text style={styles.recommendation}>Recommendation: {item.recommendation}</Text> : null}
+                {item.insight_summary ? <Text style={styles.insightText}>{t('insight')}: {item.insight_summary}</Text> : null}
+                {item.recommendation ? <Text style={styles.recommendation}>{t('recommendation')}: {item.recommendation}</Text> : null}
                 <View style={styles.metaRow}>
-                  <View style={styles.moodPill}><Text style={styles.moodText}>Mood {item.mood_score}/10</Text></View>
+                  <View style={styles.moodPill}><Text style={styles.moodText}>{t('mood')} {item.mood_score}/10</Text></View>
                   {item.emotion_label ? <Text style={styles.metaText}>{item.emotion_label}</Text> : null}
                   {item.sentiment_label ? <Text style={styles.metaText}>{item.sentiment_label}</Text> : null}
                   {item.tags?.slice(0, 3).map((tag) => <Text key={tag} style={styles.tagText}>#{tag}</Text>)}
