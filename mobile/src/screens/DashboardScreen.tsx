@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -8,24 +8,68 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { getDashboardHome, DashboardHome } from '../api/dashboard';
-import { ApiError } from '../api/client';
-import { colors } from '../theme/colors';
-import { useAuth } from '../context/AuthContext';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { getDashboardHome, DashboardHome } from "../api/dashboard";
+import { getMoodAnalytics, MoodAnalytics } from "../api/analytics";
+import { ApiError } from "../api/client";
+import { colors } from "../theme/colors";
+import { useAuth } from "../context/AuthContext";
+import { languageLocales, useTranslation } from "../i18n/I18nContext";
 
 const MOOD_EMOJI: Record<string, string> = {
-  joy: '😊', calm: '😌', stress: '😤', anxiety: '😰',
-  sadness: '😢', anger: '😠', neutral: '😐',
+  joy: "😊",
+  calm: "😌",
+  stress: "😤",
+  anxiety: "😰",
+  sadness: "😢",
+  anger: "😠",
+  neutral: "😐",
 };
 
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
+const PERIOD_OPTIONS = ["7d", "30d", "90d"] as const;
+const GRANULARITY_OPTIONS = ["day", "week", "month"] as const;
+
+function moodColor(score: number | null) {
+  if (score == null) return "#E5E7EB";
+  if (score >= 7) return "#34A853";
+  if (score >= 5) return "#FBBC04";
+  return "#EE715F";
+}
+
+function emotionColor(emotion: string | null) {
+  switch ((emotion || "").toLowerCase()) {
+    case "joy":
+      return "#FDE68A";
+    case "calm":
+      return "#BFDBFE";
+    case "stress":
+      return "#FDBA74";
+    case "anxiety":
+      return "#DDD6FE";
+    case "sadness":
+      return "#A7F3D0";
+    case "anger":
+      return "#FCA5A5";
+    default:
+      return "#E5E7EB";
+  }
+}
+
+function StatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  icon: string;
+}) {
   return (
     <View style={styles.statCard}>
       <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={styles.statValue}>{value ?? '—'}</Text>
+      <Text style={styles.statValue}>{value ?? "—"}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -33,27 +77,100 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
 
 function MoodBar({ score }: { score: number }) {
   const pct = (score / 10) * 100;
-  const color = score >= 7 ? '#34A853' : score >= 5 ? '#FBBC04' : '#EE715F';
+  const color = score >= 7 ? "#34A853" : score >= 5 ? "#FBBC04" : "#EE715F";
   return (
     <View style={styles.moodBarWrap}>
-      <View style={[styles.moodBarFill, { width: `${pct}%` as any, backgroundColor: color }]} />
+      <View
+        style={[
+          styles.moodBarFill,
+          { width: `${pct}%` as any, backgroundColor: color },
+        ]}
+      />
+    </View>
+  );
+}
+
+function DashboardMoodTrendChart({
+  points,
+}: {
+  points: MoodAnalytics["mood_history"];
+}) {
+  const visible = points.slice(-12);
+  const maxMood = 10;
+  return (
+    <View style={styles.trendChart}>
+      {visible.map((point) => {
+        const height =
+          point.average_mood == null
+            ? 8
+            : Math.max(8, (point.average_mood / maxMood) * 92);
+        return (
+          <View key={point.period_start} style={styles.trendItem}>
+            <View style={styles.trendBarTrack}>
+              <View
+                style={[
+                  styles.trendBarFill,
+                  {
+                    height: `${height}%` as any,
+                    backgroundColor: moodColor(point.average_mood),
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.trendLabel} numberOfLines={1}>
+              {point.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function DashboardMiniHeatmap({
+  days,
+}: {
+  days: MoodAnalytics["emotion_heatmap"];
+}) {
+  return (
+    <View style={styles.heatmapGrid}>
+      {days.slice(-35).map((day) => (
+        <View
+          key={day.date}
+          style={[
+            styles.heatmapCell,
+            {
+              backgroundColor: emotionColor(day.dominant_emotion),
+              opacity:
+                day.entries_count > 0 ? Math.max(0.35, day.intensity) : 0.25,
+            },
+          ]}
+        />
+      ))}
     </View>
   );
 }
 
 export function DashboardScreen({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
+  const { t, language } = useTranslation();
+  const locale = languageLocales[language as keyof typeof languageLocales];
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardHome | null>(null);
+  const [analytics, setAnalytics] = useState<MoodAnalytics | null>(null);
+  const [analyticsPeriod, setAnalyticsPeriod] =
+    useState<(typeof PERIOD_OPTIONS)[number]>("30d");
+  const [analyticsGranularity, setAnalyticsGranularity] =
+    useState<(typeof GRANULARITY_OPTIONS)[number]>("day");
 
   const [monthCursor, setMonthCursor] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
-  const [actionMode, setActionMode] = useState<'note' | 'notifier'>('note');
+  const [actionMode, setActionMode] = useState<"note" | "notifier">("note");
 
   const monthDays = (() => {
     const year = monthCursor.getFullYear();
@@ -70,39 +187,45 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
     return { year, monthIndex, cells };
   })();
 
-  const selectedKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(
-    selectedDate.getDate()
-  ).padStart(2, '0')}`;
+  const selectedKey = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(
+    selectedDate.getDate(),
+  ).padStart(2, "0")}`;
   const activeDateSet = new Set(data?.active_dates ?? []);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const d = await getDashboardHome();
+      const [d, moodAnalytics] = await Promise.all([
+        getDashboardHome(),
+        getMoodAnalytics(analyticsPeriod, analyticsGranularity),
+      ]);
       setData(d);
+      setAnalytics(moodAnalytics);
     } catch (e) {
-      if (
-        e instanceof ApiError &&
-        (e.status === 401 || e.status === 403)
-      ) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         await signOut();
         setError(null);
         return;
       }
-      setError(e instanceof ApiError ? e.message : 'Could not load dashboard.');
+      setError(e instanceof ApiError ? e.message : t("couldNotLoadProfile"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [signOut]);
+  }, [analyticsGranularity, analyticsPeriod, signOut]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const onRefresh = () => { setRefreshing(true); load(); };
+  const onRefresh = () => {
+    setRefreshing(true);
+    load();
+  };
 
   useEffect(() => {
     // Refresh calendar after coming back from AiDiary.
-    const sub = navigation?.addListener?.('focus', () => {
+    const sub = navigation?.addListener?.("focus", () => {
       load();
     });
     return () => {
@@ -112,7 +235,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
 
   if (loading && !data) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.coral} />
         </View>
@@ -122,30 +245,36 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
 
   const analysis = data?.latest_analysis;
   const stats = data?.stats;
-  const emojiKey = (analysis?.emotion_label || '').toLowerCase() as keyof typeof MOOD_EMOJI;
-  const emoji = MOOD_EMOJI[emojiKey] || '😐';
+  const emojiKey = (
+    analysis?.emotion_label || ""
+  ).toLowerCase() as keyof typeof MOOD_EMOJI;
+  const emoji = MOOD_EMOJI[emojiKey] || "😐";
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerSub}>Good day,</Text>
-            <Text style={styles.headerName}>{data?.user.username ?? 'User'} 👋</Text>
+            <Text style={styles.headerSub}>{t("dashboardGreeting")}</Text>
+            <Text style={styles.headerName}>
+              {data?.user.username ?? t("userFallback")} 👋
+            </Text>
           </View>
           <Pressable
             style={styles.avatarCircle}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={() => navigation.navigate("Profile")}
             accessibilityRole="button"
             hitSlop={8}
           >
             <Text style={styles.avatarText}>
-              {(data?.user.username?.[0] ?? 'U').toUpperCase()}
+              {(data?.user.username?.[0] ?? "U").toUpperCase()}
             </Text>
           </Pressable>
         </View>
@@ -154,7 +283,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           <View style={styles.errBox}>
             <Text style={styles.errText}>{error}</Text>
             <Pressable style={styles.retryBtn} onPress={load}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t("retry")}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -162,15 +291,18 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Mood card */}
         <View style={styles.moodCard}>
           <View style={styles.moodLeft}>
-            <Text style={styles.moodCardLabel}>Current Mood</Text>
+            <Text style={styles.moodCardLabel}>{t("currentMood")}</Text>
             <Text style={styles.moodCardEmotion}>
               {analysis
-                ? analysis.emotion_label.charAt(0).toUpperCase() + analysis.emotion_label.slice(1)
-                : 'No data yet'}
+                ? analysis.emotion_label.charAt(0).toUpperCase() +
+                  analysis.emotion_label.slice(1)
+                : t("noDataYet")}
             </Text>
             {analysis && (
               <View style={styles.sentimentPill}>
-                <Text style={styles.sentimentText}>{analysis.sentiment_label}</Text>
+                <Text style={styles.sentimentText}>
+                  {analysis.sentiment_label}
+                </Text>
               </View>
             )}
           </View>
@@ -183,29 +315,45 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
             <Pressable
               hitSlop={12}
               onPress={() =>
-                setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+                setMonthCursor(
+                  (d) => new Date(d.getFullYear(), d.getMonth() - 1, 1),
+                )
               }
             >
-              <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
+              <Ionicons
+                name="chevron-back"
+                size={20}
+                color={colors.textMuted}
+              />
             </Pressable>
             <Text style={styles.calTitle}>
-              {monthCursor.toLocaleDateString('en-US', {
-                month: 'long',
-                year: 'numeric',
+              {monthCursor.toLocaleDateString(locale, {
+                month: "long",
+                year: "numeric",
               })}
             </Text>
             <Pressable
               hitSlop={12}
               onPress={() =>
-                setMonthCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+                setMonthCursor(
+                  (d) => new Date(d.getFullYear(), d.getMonth() + 1, 1),
+                )
               }
             >
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textMuted}
+              />
             </Pressable>
           </View>
 
           <View style={styles.calDowRow}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, idx) => (
+            {Array.from({ length: 7 }, (_, idx) =>
+              new Date(2024, 0, 7 + idx)
+                .toLocaleDateString(locale, { weekday: "short" })
+                .slice(0, 1),
+            ).map((d, idx) => (
               <Text key={`${d}-${idx}`} style={styles.calDowText}>
                 {d}
               </Text>
@@ -218,11 +366,15 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                 return <View key={`e-${idx}`} style={styles.calCell} />;
               }
 
-              const cellDate = new Date(monthDays.year, monthDays.monthIndex, dayNum);
+              const cellDate = new Date(
+                monthDays.year,
+                monthDays.monthIndex,
+                dayNum,
+              );
               // Keys must match backend format: "YYYY-MM-DD"
-              const cellKey = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, '0')}-${String(
-                cellDate.getDate()
-              ).padStart(2, '0')}`;
+              const cellKey = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, "0")}-${String(
+                cellDate.getDate(),
+              ).padStart(2, "0")}`;
               const isSelected = cellKey === selectedKey;
               const isActive = activeDateSet.has(cellKey);
 
@@ -236,7 +388,12 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                   ]}
                   onPress={() => setSelectedDate(cellDate)}
                 >
-                  <Text style={[styles.calDayText, isSelected && styles.calDayTextSelected]}>
+                  <Text
+                    style={[
+                      styles.calDayText,
+                      isSelected && styles.calDayTextSelected,
+                    ]}
+                  >
                     {dayNum}
                   </Text>
                   {isActive ? <View style={styles.calDot} /> : null}
@@ -247,38 +404,46 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
 
           <View style={styles.calModeRow}>
             <Pressable
-              style={[styles.calModeBtn, actionMode === 'note' && styles.calModeBtnOn]}
-              onPress={() => setActionMode('note')}
+              style={[
+                styles.calModeBtn,
+                actionMode === "note" && styles.calModeBtnOn,
+              ]}
+              onPress={() => setActionMode("note")}
             >
-              <Text style={[styles.calModeText, actionMode === 'note' && styles.calModeTextOn]}>
-                Note
+              <Text
+                style={[
+                  styles.calModeText,
+                  actionMode === "note" && styles.calModeTextOn,
+                ]}
+              >
+                {t("note")}
               </Text>
             </Pressable>
             <Pressable
               style={[
                 styles.calModeBtn,
-                actionMode === 'notifier' && styles.calModeBtnOn,
+                actionMode === "notifier" && styles.calModeBtnOn,
               ]}
-              onPress={() => setActionMode('notifier')}
+              onPress={() => setActionMode("notifier")}
             >
               <Text
                 style={[
                   styles.calModeText,
-                  actionMode === 'notifier' && styles.calModeTextOn,
+                  actionMode === "notifier" && styles.calModeTextOn,
                 ]}
               >
-                Notifier
+                {t("notifier")}
               </Text>
             </Pressable>
           </View>
 
           <Text style={styles.calSelectedText}>
-            Selected:{' '}
-            {selectedDate.toLocaleDateString('en-US', {
-              weekday: 'short',
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
+            {t("selected")}:{" "}
+            {selectedDate.toLocaleDateString(locale, {
+              weekday: "short",
+              year: "numeric",
+              month: "short",
+              day: "numeric",
             })}
           </Text>
 
@@ -286,55 +451,298 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
             style={styles.calActionBtn}
             onPress={() => {
               const entryDate = `${selectedDate.getFullYear()}-${String(
-                selectedDate.getMonth() + 1
-              ).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
-              const notificationEnabled = actionMode === 'notifier';
+                selectedDate.getMonth() + 1,
+              ).padStart(
+                2,
+                "0",
+              )}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+              const notificationEnabled = actionMode === "notifier";
 
               // Navigate into HomeStack (AiDiary) from the nested tab navigator.
-              navigation.navigate('Home', {
-                screen: 'AiDiary',
+              navigation.navigate("Home", {
+                screen: "AiDiary",
                 params: { entryDate, notificationEnabled },
               });
             }}
           >
             <Text style={styles.calActionText}>
-              {actionMode === 'note'
-                ? 'Create note for this day'
-                : 'Set notifier for this day'}
+              {actionMode === "note"
+                ? t("createNoteForDay")
+                : t("setNotifierForDay")}
             </Text>
           </Pressable>
         </View>
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatCard label="Entries" value={stats?.total_entries ?? 0} icon="📝" />
           <StatCard
-            label="Avg Mood"
-            value={stats?.average_mood != null ? stats.average_mood.toFixed(1) : '—'}
+            label={t("entriesStat")}
+            value={stats?.total_entries ?? 0}
+            icon="📝"
+          />
+          <StatCard
+            label={t("avgMood")}
+            value={
+              stats?.average_mood != null ? stats.average_mood.toFixed(1) : "—"
+            }
             icon="📊"
           />
-          <StatCard label="Streak" value={`${stats?.current_streak ?? 0}d`} icon="🔥" />
-          <StatCard label="Best" value={`${stats?.longest_streak ?? 0}d`} icon="🏆" />
+          <StatCard
+            label={t("streak")}
+            value={`${stats?.current_streak ?? 0}${t("dayShort")}`}
+            icon="🔥"
+          />
+          <StatCard
+            label={t("best")}
+            value={`${stats?.longest_streak ?? 0}${t("dayShort")}`}
+            icon="🏆"
+          />
         </View>
+
+        <View style={styles.section}>
+          <View style={styles.archiveCard}>
+            <View style={styles.archiveIcon}>
+              <Ionicons name="search-outline" size={20} color={colors.coral} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.archiveTitle}>{t("searchHistory")}</Text>
+              <Text style={styles.archiveSubtitle}>
+                {t("searchHistorySubtitle")}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.archiveButton}
+              onPress={() => navigation.navigate("ArchiveSearch")}
+            >
+              <Text style={styles.archiveButtonText}>{t("openArchive")}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {data?.latest_quiz_action_plan ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>
+                {t("latestQuizActionPlan")}
+              </Text>
+              <Text style={styles.sectionHint}>
+                {data.latest_quiz_action_plan.quiz_title}
+              </Text>
+            </View>
+            <View style={styles.quizPlanCard}>
+              <View style={styles.quizPlanTop}>
+                <Text style={styles.quizPlanTitle}>
+                  {data.latest_quiz_action_plan.quiz_title}
+                </Text>
+                <Text style={styles.quizPlanScore}>
+                  {Math.round(data.latest_quiz_action_plan.score)}
+                </Text>
+              </View>
+              <Text style={styles.quizPlanMeta}>
+                {new Date(
+                  data.latest_quiz_action_plan.created_at,
+                ).toLocaleDateString()}{" "}
+                • {data.latest_quiz_action_plan.severity_level}
+              </Text>
+              <Text style={styles.quizPlanSummary} numberOfLines={3}>
+                {data.latest_quiz_action_plan.summary}
+              </Text>
+              {data.latest_quiz_action_plan.next_actions
+                .slice(0, 3)
+                .map((action) => (
+                  <View key={action} style={styles.quizPlanActionRow}>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={15}
+                      color={colors.coral}
+                    />
+                    <Text style={styles.quizPlanAction}>{action}</Text>
+                  </View>
+                ))}
+              <Pressable
+                style={styles.quizPlanButton}
+                onPress={() =>
+                  navigation.navigate("Home", { screen: "AiQuiz" })
+                }
+              >
+                <Text style={styles.quizPlanButtonText}>
+                  {t("viewResultOrRetakeQuiz")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Mood analytics */}
+        {analytics ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{t("moodAnalytics")}</Text>
+              <Text style={styles.sectionHint}>
+                {analytics.start_date} → {analytics.end_date}
+              </Text>
+            </View>
+
+            <View style={styles.filterRow}>
+              {PERIOD_OPTIONS.map((period) => (
+                <Pressable
+                  key={period}
+                  style={[
+                    styles.filterChip,
+                    analyticsPeriod === period && styles.filterChipOn,
+                  ]}
+                  onPress={() => setAnalyticsPeriod(period)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      analyticsPeriod === period && styles.filterChipTextOn,
+                    ]}
+                  >
+                    {period}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.filterRow}>
+              {GRANULARITY_OPTIONS.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[
+                    styles.filterChip,
+                    analyticsGranularity === item && styles.filterChipOn,
+                  ]}
+                  onPress={() => setAnalyticsGranularity(item)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      analyticsGranularity === item && styles.filterChipTextOn,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>{t("moodOverTime")}</Text>
+              <DashboardMoodTrendChart points={analytics.mood_history} />
+            </View>
+
+            <View style={styles.analyticsMiniGrid}>
+              <View style={styles.analyticsMiniCard}>
+                <Text style={styles.analyticsMiniValue}>
+                  {analytics.journaling_frequency.entries_per_week}
+                </Text>
+                <Text style={styles.analyticsMiniLabel}>
+                  {t("entriesPerWeek")}
+                </Text>
+              </View>
+              <View style={styles.analyticsMiniCard}>
+                <Text style={styles.analyticsMiniValue}>
+                  {analytics.journaling_frequency.consistency_percentage}%
+                </Text>
+                <Text style={styles.analyticsMiniLabel}>
+                  {t("consistency")}
+                </Text>
+              </View>
+              <View style={styles.analyticsMiniCard}>
+                <Text style={styles.analyticsMiniValue}>
+                  {analytics.streak.longest_streak}
+                  {t("dayShort")}
+                </Text>
+                <Text style={styles.analyticsMiniLabel}>{t("bestStreak")}</Text>
+              </View>
+            </View>
+
+            {analytics.top_emotions.length > 0 ? (
+              <View style={styles.analyticsCard}>
+                <Text style={styles.analyticsTitle}>{t("topEmotions")}</Text>
+                {analytics.top_emotions.map((emotion) => (
+                  <View key={emotion.emotion_label} style={styles.emotionRow}>
+                    <Text style={styles.emotionName}>
+                      {MOOD_EMOJI[emotion.emotion_label] ?? "✨"}{" "}
+                      {emotion.emotion_label}
+                    </Text>
+                    <View style={styles.emotionBarTrack}>
+                      <View
+                        style={[
+                          styles.emotionBarFill,
+                          { width: `${emotion.percentage}%` as any },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.emotionPct}>{emotion.percentage}%</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>{t("emotionHeatmap")}</Text>
+              <DashboardMiniHeatmap days={analytics.emotion_heatmap} />
+              <Text style={styles.analyticsCaption}>{t("heatmapCaption")}</Text>
+            </View>
+
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>
+                {t("interpretationLayer")}
+              </Text>
+              {analytics.insights.slice(0, 3).map((insight) => (
+                <View key={insight.title} style={styles.insightBullet}>
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={15}
+                    color={colors.coral}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.insightBulletTitle}>
+                      {insight.title}
+                    </Text>
+                    <Text style={styles.insightBulletText}>
+                      {insight.description}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              {analytics.correlations.map((correlation) => (
+                <Text key={correlation.metric} style={styles.correlationText}>
+                  {correlation.metric.replace(/_/g, " ")}:{" "}
+                  {correlation.strength}
+                  {correlation.coefficient != null
+                    ? ` (${correlation.coefficient})`
+                    : ""}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {/* Latest analysis */}
         {analysis && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Latest Insight</Text>
+            <Text style={styles.sectionTitle}>{t("latestInsight")}</Text>
             <View style={styles.insightCard}>
-              <Text style={styles.insightSummary}>{analysis.short_summary}</Text>
+              <Text style={styles.insightSummary}>
+                {analysis.short_summary}
+              </Text>
               <View style={styles.insightDivider} />
               <View style={styles.insightRow}>
                 <Ionicons name="bulb-outline" size={16} color={colors.coral} />
                 <Text style={styles.insightRec}>{analysis.recommendation}</Text>
               </View>
               <View style={styles.confidenceRow}>
-                <Text style={styles.confidenceLabel}>Confidence</Text>
+                <Text style={styles.confidenceLabel}>{t("confidence")}</Text>
                 <View style={styles.confidenceBarWrap}>
                   <View
                     style={[
                       styles.confidenceBarFill,
-                      { width: `${Math.round(analysis.confidence_score * 100)}%` as any },
+                      {
+                        width:
+                          `${Math.round(analysis.confidence_score * 100)}%` as any,
+                      },
                     ]}
                   />
                 </View>
@@ -349,20 +757,25 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Recent entries */}
         {(data?.recent_entries?.length ?? 0) > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Journal Entries</Text>
+            <Text style={styles.sectionTitle}>{t("recentJournalEntries")}</Text>
             {data!.recent_entries.map((entry) => (
               <View key={entry.id} style={styles.entryCard}>
                 <View style={styles.entryLeft}>
-                  <Text style={styles.entryTitle} numberOfLines={1}>{entry.title}</Text>
+                  <Text style={styles.entryTitle} numberOfLines={1}>
+                    {entry.title}
+                  </Text>
                   <Text style={styles.entryDate}>
-                    {new Date(entry.created_at).toLocaleDateString('en-US', {
-                      month: 'short', day: 'numeric',
+                    {new Date(entry.created_at).toLocaleDateString(locale, {
+                      month: "short",
+                      day: "numeric",
                     })}
                   </Text>
                 </View>
                 <View style={styles.entryRight}>
                   <MoodBar score={entry.mood_score} />
-                  <Text style={styles.entryMoodScore}>{entry.mood_score}/10</Text>
+                  <Text style={styles.entryMoodScore}>
+                    {entry.mood_score}/10
+                  </Text>
                 </View>
               </View>
             ))}
@@ -372,10 +785,8 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {!analysis && !loading && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📖</Text>
-            <Text style={styles.emptyTitle}>Start your journey</Text>
-            <Text style={styles.emptySub}>
-              Write your first journal entry to unlock mood insights and personalized advice.
-            </Text>
+            <Text style={styles.emptyTitle}>{t("startJourney")}</Text>
+            <Text style={styles.emptySub}>{t("startJourneySub")}</Text>
           </View>
         )}
       </ScrollView>
@@ -386,55 +797,77 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.backgroundSoft },
   scroll: { paddingHorizontal: 20, paddingBottom: 32, paddingTop: 8 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
 
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 20,
     marginTop: 4,
   },
   headerSub: { fontSize: 13, color: colors.textMuted },
-  headerName: { fontSize: 22, fontWeight: '700', color: colors.text },
+  headerName: { fontSize: 22, fontWeight: "700", color: colors.text },
   avatarCircle: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.periwinkle,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  avatarText: { fontSize: 18, fontWeight: '700', color: colors.text },
+  avatarText: { fontSize: 18, fontWeight: "700", color: colors.text },
 
   errBox: { marginBottom: 16 },
-  errText: { color: '#B91C1C', marginBottom: 8, fontSize: 13 },
+  errText: { color: "#B91C1C", marginBottom: 8, fontSize: 13 },
   retryBtn: {
-    alignSelf: 'flex-start', backgroundColor: colors.coral,
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
+    alignSelf: "flex-start",
+    backgroundColor: colors.coral,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
   },
-  retryText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  retryText: { color: "#fff", fontWeight: "600", fontSize: 13 },
 
   moodCard: {
     backgroundColor: colors.periwinkle,
     borderRadius: 24,
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   moodLeft: { flex: 1 },
-  moodCardLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 4, fontWeight: '500' },
-  moodCardEmotion: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  moodCardLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  moodCardEmotion: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 8,
+  },
   sentimentPill: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: colors.white,
-    paddingHorizontal: 12, paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 999,
   },
-  sentimentText: { fontSize: 12, fontWeight: '600', color: colors.text, textTransform: 'capitalize' },
+  sentimentText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text,
+    textTransform: "capitalize",
+  },
   moodBigEmoji: { fontSize: 56 },
 
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 20,
   },
@@ -443,70 +876,86 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 16,
     padding: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   statIcon: { fontSize: 18, marginBottom: 4 },
-  statValue: { fontSize: 16, fontWeight: '700', color: colors.text },
-  statLabel: { fontSize: 10, color: colors.textMuted, marginTop: 2, textAlign: 'center' },
+  statValue: { fontSize: 16, fontWeight: "700", color: colors.text },
+  statLabel: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2,
+    textAlign: "center",
+  },
 
   section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 10 },
-
-  calTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
     marginBottom: 10,
   },
-  calTitle: { fontSize: 14, fontWeight: '800', color: colors.textMuted },
+
+  calTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  calTitle: { fontSize: 14, fontWeight: "800", color: colors.textMuted },
 
   calDowRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
-  calDowText: { width: 28, textAlign: 'center', fontSize: 11, color: colors.textMuted, fontWeight: '700' },
+  calDowText: {
+    width: 28,
+    textAlign: "center",
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: "700",
+  },
 
   calGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: '100%',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: "100%",
   },
   calCell: {
     width: 28,
     height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 8,
     marginBottom: 6,
-    position: 'relative',
+    position: "relative",
   },
   calCellSelected: {
     backgroundColor: colors.coral,
   },
   calCellActive: {
-    backgroundColor: '#E9F0FF',
+    backgroundColor: "#E9F0FF",
     borderWidth: 1,
-    borderColor: '#93C5FD',
+    borderColor: "#93C5FD",
   },
   calDot: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 4,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.coral,
   },
-  calDayText: { fontSize: 12, color: colors.textMuted, fontWeight: '700' },
+  calDayText: { fontSize: 12, color: colors.textMuted, fontWeight: "700" },
   calDayTextSelected: { color: colors.white },
 
   calModeRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginTop: 8,
     marginBottom: 8,
@@ -514,17 +963,17 @@ const styles = StyleSheet.create({
   calModeBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     backgroundColor: colors.white,
     borderRadius: 14,
     paddingVertical: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   calModeBtnOn: {
-    backgroundColor: '#FFF0EE',
+    backgroundColor: "#FFF0EE",
     borderColor: colors.coral,
   },
-  calModeText: { fontSize: 13, fontWeight: '800', color: colors.textMuted },
+  calModeText: { fontSize: 13, fontWeight: "800", color: colors.textMuted },
   calModeTextOn: { color: colors.coral },
 
   calSelectedText: { fontSize: 13, color: colors.textMuted, marginBottom: 10 },
@@ -533,66 +982,309 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  calActionText: { color: colors.text, fontWeight: '900' },
+  calActionText: { color: colors.text, fontWeight: "900" },
 
   insightCard: {
     backgroundColor: colors.white,
     borderRadius: 20,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   insightSummary: { fontSize: 14, color: colors.text, lineHeight: 20 },
-  insightDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 },
-  insightRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  insightRec: { flex: 1, fontSize: 13, color: colors.textMuted, lineHeight: 18 },
+  insightDivider: { height: 1, backgroundColor: "#F0F0F0", marginVertical: 12 },
+  insightRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
+  insightRec: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
   confidenceRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
   },
   confidenceLabel: { fontSize: 11, color: colors.textMuted, width: 68 },
   confidenceBarWrap: {
-    flex: 1, height: 6, backgroundColor: '#F0F0F0', borderRadius: 3, overflow: 'hidden',
+    flex: 1,
+    height: 6,
+    backgroundColor: "#F0F0F0",
+    borderRadius: 3,
+    overflow: "hidden",
   },
-  confidenceBarFill: { height: 6, backgroundColor: colors.coral, borderRadius: 3 },
-  confidencePct: { fontSize: 11, fontWeight: '600', color: colors.text, width: 32, textAlign: 'right' },
+  confidenceBarFill: {
+    height: 6,
+    backgroundColor: colors.coral,
+    borderRadius: 3,
+  },
+  confidencePct: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.text,
+    width: 32,
+    textAlign: "right",
+  },
 
   entryCard: {
     backgroundColor: colors.white,
     borderRadius: 16,
     padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
   entryLeft: { flex: 1 },
-  entryTitle: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 4 },
+  entryTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: 4,
+  },
   entryDate: { fontSize: 12, color: colors.textMuted },
-  entryRight: { alignItems: 'flex-end', gap: 4 },
+  entryRight: { alignItems: "flex-end", gap: 4 },
   moodBarWrap: {
-    width: 80, height: 6, backgroundColor: '#F0F0F0',
-    borderRadius: 3, overflow: 'hidden',
+    width: 80,
+    height: 6,
+    backgroundColor: "#F0F0F0",
+    borderRadius: 3,
+    overflow: "hidden",
   },
   moodBarFill: { height: 6, borderRadius: 3 },
-  entryMoodScore: { fontSize: 12, fontWeight: '600', color: colors.text },
+  entryMoodScore: { fontSize: 12, fontWeight: "600", color: colors.text },
+
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  sectionHint: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+  filterRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  filterChipOn: { backgroundColor: "#FFF0EE", borderColor: colors.coral },
+  filterChipText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+  filterChipTextOn: { color: colors.coral },
+
+  archiveCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#EEF2FF",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  archiveIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF3F1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  archiveTitle: { fontSize: 15, fontWeight: "900", color: colors.text },
+  archiveSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  archiveButton: {
+    backgroundColor: colors.coral,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  archiveButtonText: { color: "#fff", fontWeight: "900", fontSize: 11 },
+
+  quizPlanCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#EEF2FF",
+    gap: 8,
+  },
+  quizPlanTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  quizPlanTitle: { fontSize: 15, fontWeight: "900", color: colors.text },
+  quizPlanScore: { fontSize: 22, fontWeight: "900", color: colors.coral },
+  quizPlanMeta: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: "800",
+    textTransform: "capitalize",
+  },
+  quizPlanSummary: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  quizPlanActionRow: { flexDirection: "row", gap: 7, alignItems: "flex-start" },
+  quizPlanAction: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  quizPlanButton: {
+    backgroundColor: colors.coral,
+    borderRadius: 14,
+    paddingVertical: 11,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  quizPlanButtonText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+
+  analyticsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  analyticsTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 10,
+  },
+  trendChart: {
+    height: 140,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  trendItem: { flex: 1, alignItems: "center", gap: 5 },
+  trendBarTrack: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  trendBarFill: { width: "100%", borderRadius: 10 },
+  trendLabel: { fontSize: 9, color: colors.textMuted, maxWidth: 44 },
+  analyticsMiniGrid: { flexDirection: "row", gap: 8, marginTop: 8 },
+  analyticsMiniCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: "center",
+  },
+  analyticsMiniValue: { fontSize: 16, fontWeight: "900", color: colors.text },
+  analyticsMiniLabel: {
+    fontSize: 10,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: 2,
+  },
+  emotionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  emotionName: {
+    width: 84,
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  emotionBarTrack: {
+    flex: 1,
+    height: 7,
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: "#F3F4F6",
+  },
+  emotionBarFill: { height: 7, borderRadius: 4, backgroundColor: colors.coral },
+  emotionPct: {
+    width: 48,
+    fontSize: 11,
+    color: colors.textMuted,
+    textAlign: "right",
+    fontWeight: "700",
+  },
+  heatmapGrid: { flexDirection: "row", flexWrap: "wrap", gap: 5 },
+  heatmapCell: { width: 16, height: 16, borderRadius: 5 },
+  analyticsCaption: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 10,
+    lineHeight: 15,
+  },
+  insightBullet: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+  insightBulletTitle: { fontSize: 12, color: colors.text, fontWeight: "800" },
+  insightBulletText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  correlationText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 4,
+    textTransform: "capitalize",
+  },
 
   emptyCard: {
     backgroundColor: colors.white,
     borderRadius: 24,
     padding: 28,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8 },
-  emptySub: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: 8,
+  },
+  emptySub: {
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
 });

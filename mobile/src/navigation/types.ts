@@ -1,11 +1,15 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 export type RootStackParamList = {
   Onboarding: undefined;
   Welcome: undefined;
   Register: undefined;
   MainTabs: undefined;
-  Profile: undefined;
+  PersonalizationOnboarding: undefined;
+  Profile: { openPersonalization?: boolean } | undefined;
+  ArchiveSearch:
+    | { initialTab?: "journals" | "insights" | "favorites" }
+    | undefined;
 };
 
 export type HomeStackParamList = {
@@ -17,5 +21,11 @@ export type HomeStackParamList = {
   Feature: { title: string };
 };
 
-export type WelcomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
-export type RegisterScreenProps = NativeStackScreenProps<RootStackParamList, 'Register'>;
+export type WelcomeScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  "Welcome"
+>;
+export type RegisterScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  "Register"
+>;
