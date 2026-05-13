@@ -17,6 +17,7 @@ import { ApiError } from "../api/client";
 import { colors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 import { languageLocales, useTranslation } from "../i18n/I18nContext";
+import { setAchievementWeeklyMoodReview } from "../lib/storage";
 
 const MOOD_EMOJI: Record<string, string> = {
   joy: "😊",
@@ -201,6 +202,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       ]);
       setData(d);
       setAnalytics(moodAnalytics);
+      void setAchievementWeeklyMoodReview();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         await signOut();

@@ -43,7 +43,11 @@ import {
   updateReminderPreferences,
 } from "../api/reminders";
 import { scheduleReminderPreferences } from "../lib/notifications";
-import { getTrustedPersonPhone, setTrustedPersonPhone } from "../lib/storage";
+import {
+  getTrustedPersonPhone,
+  setAchievementPrivacyReady,
+  setTrustedPersonPhone,
+} from "../lib/storage";
 import { supportedLanguages, useTranslation } from "../i18n/I18nContext";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Profile">;
@@ -630,6 +634,7 @@ function PrivacyCenterModal({
       const updated = await updateUserPreferences({
         privacy_preferences: draft.privacy_preferences,
       });
+      await setAchievementPrivacyReady();
       onSaved(updated);
       Alert.alert(t("privacySaved"), t("privacySavedMessage"));
     } catch (e) {
@@ -646,6 +651,7 @@ function PrivacyCenterModal({
     setSaving(true);
     try {
       const updated = await acceptPrivacyNotice();
+      await setAchievementPrivacyReady();
       setDraft(updated);
       onSaved(updated);
       Alert.alert(t("noticeAccepted"), t("consentRecorded"));
@@ -1324,7 +1330,10 @@ export function ProfileScreen({ navigation, route }: Props) {
                   <View style={styles.divider} />
                   <Pressable
                     style={styles.editPrefsRow}
-                    onPress={() => setPrivacyModalVisible(true)}
+                    onPress={() => {
+                      void setAchievementPrivacyReady();
+                      setPrivacyModalVisible(true);
+                    }}
                   >
                     <Text style={styles.editPrefsText}>
                       {t("openPrivacyCenter")}

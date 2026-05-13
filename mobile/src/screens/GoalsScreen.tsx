@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiError } from "../api/client";
+import { getDashboardHome } from "../api/dashboard";
+import { getAiQuizHistory } from "../api/aiQuiz";
 import {
   completeGoal,
   createGoal,
@@ -26,6 +28,19 @@ import {
 } from "../api/goals";
 import { colors } from "../theme/colors";
 import { useTranslation } from "../i18n/I18nContext";
+import {
+  getAchievementPrivacyReady,
+  getAchievementWeeklyMoodReview,
+  getAchievementWeeklySummaryCompleted,
+  getTrustedPersonPhone,
+  setAchievementWeeklySummaryCompleted,
+} from "../lib/storage";
+import {
+  Achievement,
+  AchievementCategory,
+  ACHIEVEMENT_CATEGORIES,
+  buildAchievements,
+} from "../utils/achievements";
 
 const starterGoalTemplates = [
   {
@@ -44,11 +59,103 @@ const starterGoalTemplates = [
   },
 ];
 
+function achievementCategoryLabel(
+  category: AchievementCategory,
+  t: (key: string) => string,
+) {
+  const labels: Record<AchievementCategory, string> = {
+    reflection: t("achievementCategoryReflection"),
+    mood: t("achievementCategoryMood"),
+    ai_support: t("achievementCategoryAiSupport"),
+    self_care: t("achievementCategorySelfCare"),
+  };
+  return labels[category];
+}
+
+function AchievementCard({ achievement }: { achievement: Achievement }) {
+  const { t } = useTranslation();
+  const isCompleted = achievement.status === "unlocked";
+  const isInProgress = achievement.status === "in_progress";
+  const statusText = isCompleted
+    ? t("achievementStatusCompleted")
+    : isInProgress
+      ? t("achievementStatusInProgress")
+      : t("achievementStatusNotYet");
+  const encouragement = isCompleted
+    ? t("achievementEncouragementShowedUp")
+    : isInProgress
+      ? t("achievementEncouragementAwareness")
+      : t("achievementEncouragementSmallSteps");
+  const progressText =
+    achievement.target && achievement.progress != null
+      ? `${Math.min(achievement.progress, achievement.target)}/${achievement.target}`
+      : null;
+
+  return (
+    <View
+      style={[
+        styles.achievementCard,
+        isCompleted && styles.achievementCardCompleted,
+      ]}
+    >
+      <View style={styles.achievementTopRow}>
+        <View
+          style={[
+            styles.achievementIconWrap,
+            isCompleted && styles.achievementIconCompleted,
+          ]}
+        >
+          <Ionicons
+            name={achievement.icon as keyof typeof Ionicons.glyphMap}
+            size={20}
+            color={isCompleted ? colors.coral : colors.textMuted}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.achievementTitle}>{achievement.title}</Text>
+          <Text style={styles.achievementDescription}>
+            {achievement.description}
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.achievementStatus,
+            isCompleted && styles.achievementStatusCompleted,
+            isInProgress && styles.achievementStatusProgress,
+          ]}
+        >
+          {statusText}
+        </Text>
+      </View>
+      {progressText ? (
+        <View style={styles.achievementProgressRow}>
+          <View style={styles.achievementProgressTrack}>
+            <View
+              style={[
+                styles.achievementProgressFill,
+                {
+                  width: `${Math.min(
+                    ((achievement.progress ?? 0) / achievement.target) * 100,
+                    100,
+                  )}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.achievementProgressText}>{progressText}</Text>
+        </View>
+      ) : null}
+      <Text style={styles.achievementEncouragement}>{encouragement}</Text>
+    </View>
+  );
+}
+
 export function GoalsScreen() {
   const { t } = useTranslation();
   const [progress, setProgress] = useState<GoalProgress[]>([]);
   const [summary, setSummary] = useState<WeeklyGoalSummary | null>(null);
   const [templates, setTemplates] = useState<GoalTemplate[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,21 +164,69 @@ export function GoalsScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [p, s, t] = await Promise.all([
+      const [
+        p,
+        s,
+        templatesData,
+        dashboard,
+        quizHistory,
+        trustedPhone,
+        privacyReady,
+        weeklyMoodReview,
+        weeklySummaryCompleted,
+      ] = await Promise.all([
         getGoalProgress(),
         getWeeklyGoalSummary(),
         getGoalTemplates(),
+        getDashboardHome().catch(() => null),
+        getAiQuizHistory(1).catch(() => []),
+        getTrustedPersonPhone(),
+        getAchievementPrivacyReady(),
+        getAchievementWeeklyMoodReview(),
+        getAchievementWeeklySummaryCompleted(),
       ]);
+      if (s) {
+        void setAchievementWeeklySummaryCompleted();
+      }
       setProgress(p);
       setSummary(s);
-      setTemplates(t);
+      setTemplates(templatesData);
+      const reflectionProgress = p.find(
+        (item) => item.goal.goal_type === "reflection",
+      );
+      const moodProgress = p.find(
+        (item) => item.goal.goal_type === "mood_tracking",
+      );
+      const journalEntryCount =
+        dashboard?.stats.total_entries ??
+        reflectionProgress?.current_count ??
+        0;
+      const moodEntryCount =
+        dashboard?.stats.total_entries ?? moodProgress?.current_count ?? 0;
+      setAchievements(
+        buildAchievements(
+          {
+            journalEntryCount,
+            journalEntryDates: dashboard?.active_dates ?? [],
+            moodEntryCount,
+            aiInsightCount: dashboard?.latest_analysis ? 1 : 0,
+            quizResultCount:
+              quizHistory.length || dashboard?.latest_quiz_action_plan ? 1 : 0,
+            trustedPersonPhone: trustedPhone,
+            weeklyMoodReviewViewed: weeklyMoodReview,
+            weeklySummaryViewed: weeklySummaryCompleted || Boolean(s),
+            privacyConfigured: privacyReady,
+          },
+          t,
+        ),
+      );
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("couldNotLoadGoals"));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -117,7 +272,7 @@ export function GoalsScreen() {
         {saving ? (
           <ActivityIndicator color={colors.coral} />
         ) : (
-          <Ionicons name="flag-outline" size={24} color={colors.coral} />
+          <Ionicons name="sparkles-outline" size={24} color={colors.coral} />
         )}
       </View>
 
@@ -150,9 +305,40 @@ export function GoalsScreen() {
             </Text>
             <Text style={styles.meta}>
               {t("completed")} {summary?.completed_goals ?? 0} • {t("partial")}{" "}
-              {summary?.partially_completed_goals ?? 0} • {t("missed")}{" "}
+              {summary?.partially_completed_goals ?? 0} • {t("achievementStatusNotYet")}{" "}
               {summary?.missed_goals ?? 0}
             </Text>
+          </View>
+
+          <View style={styles.achievementsSection}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>{t("achievements")}</Text>
+                <Text style={styles.sectionSubtitle}>
+                  {t("achievementsSubtitle")}
+                </Text>
+              </View>
+              <Ionicons name="sparkles-outline" size={22} color={colors.coral} />
+            </View>
+            {ACHIEVEMENT_CATEGORIES.map((category) => {
+              const categoryAchievements = achievements.filter(
+                (achievement) => achievement.category === category,
+              );
+              if (!categoryAchievements.length) return null;
+              return (
+                <View key={category} style={styles.achievementCategoryBlock}>
+                  <Text style={styles.achievementCategoryTitle}>
+                    {achievementCategoryLabel(category, t)}
+                  </Text>
+                  {categoryAchievements.map((achievement) => (
+                    <AchievementCard
+                      key={achievement.id}
+                      achievement={achievement}
+                    />
+                  ))}
+                </View>
+              );
+            })}
           </View>
 
           <Text style={styles.sectionTitle}>{t("activeGoals")}</Text>
@@ -304,6 +490,107 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
     marginTop: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 12,
+  },
+  sectionSubtitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 18,
+    marginTop: -4,
+  },
+  achievementsSection: { marginBottom: 18 },
+  achievementCategoryBlock: { marginBottom: 12 },
+  achievementCategoryTitle: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  achievementCard: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#E8ECF4",
+  },
+  achievementCardCompleted: {
+    borderColor: "#FFD9D1",
+    backgroundColor: "#FFFDFC",
+  },
+  achievementTopRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  achievementIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F7FA",
+  },
+  achievementIconCompleted: { backgroundColor: "#FFF3F1" },
+  achievementTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
+  achievementDescription: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 3,
+    fontWeight: "600",
+  },
+  achievementStatus: {
+    color: colors.textMuted,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  achievementStatusCompleted: {
+    color: colors.coral,
+    backgroundColor: "#FFF3F1",
+  },
+  achievementStatusProgress: { color: colors.text, backgroundColor: "#EEF2FF" },
+  achievementProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+  achievementProgressTrack: {
+    flex: 1,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: "#EEF2F7",
+    overflow: "hidden",
+  },
+  achievementProgressFill: {
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: colors.accentGreen,
+  },
+  achievementProgressText: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  achievementEncouragement: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+    marginTop: 10,
   },
   card: {
     backgroundColor: colors.white,

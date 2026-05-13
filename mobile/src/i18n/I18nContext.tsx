@@ -459,6 +459,54 @@ const en = {
   missed: "Missed",
   noActiveGoals:
     "No active goals yet. Start with a small supportive goal below.",
+  achievements: "Achievements",
+  reflectionMilestones: "Reflection Milestones",
+  achievementsSubtitle:
+    "Small milestones that reflect your emotional self-care progress.",
+  achievementStatusCompleted: "Completed",
+  achievementStatusInProgress: "In progress",
+  achievementStatusNotYet: "Not yet",
+  achievementCategoryReflection: "Reflection",
+  achievementCategoryMood: "Mood Awareness",
+  achievementCategoryAiSupport: "AI Support",
+  achievementCategorySelfCare: "Self-care Setup",
+  achievementFirstReflection: "First Reflection",
+  achievementFirstReflectionDesc: "Your first journal entry is complete.",
+  achievementThreeDayReflection: "3-Day Reflection Streak",
+  achievementThreeDayReflectionDesc:
+    "You reflected for three days. Small steps matter.",
+  achievementConsistentJournaling: "Consistent Journaling",
+  achievementConsistentJournalingDesc: "You completed 5 journal entries.",
+  achievementFirstMoodCheckIn: "First Mood Check-in",
+  achievementFirstMoodCheckInDesc:
+    "You completed your first mood check-in.",
+  achievementMoodAwareness: "Mood Awareness",
+  achievementMoodAwarenessDesc: "You completed 5 mood check-ins.",
+  achievementWeeklyMoodReview: "Weekly Mood Review",
+  achievementWeeklyMoodReviewDesc:
+    "You reviewed your mood patterns for the week.",
+  achievementFirstAiInsight: "First AI Insight",
+  achievementFirstAiInsightDesc:
+    "You received your first AI-generated reflection insight.",
+  achievementCompletedAiQuiz: "Completed AI Quiz",
+  achievementCompletedAiQuizDesc:
+    "You completed your first AI reflection quiz.",
+  achievementFirstWeeklySummary: "First Weekly Summary",
+  achievementFirstWeeklySummaryDesc:
+    "You completed your first weekly summary.",
+  achievementSupportContactAdded: "Support Contact Added",
+  achievementSupportContactAddedDesc:
+    "You added a trusted person for difficult moments.",
+  achievementPrivacyReady: "Privacy Ready",
+  achievementPrivacyReadyDesc:
+    "You opened or configured your Privacy Center.",
+  achievementWelcomeBack: "Welcome Back",
+  achievementWelcomeBackDesc:
+    "You returned to reflection after a break.",
+  achievementEncouragementSmallSteps: "Small steps matter.",
+  achievementEncouragementShowedUp: "You showed up for yourself.",
+  achievementEncouragementAwareness:
+    "Reflection builds awareness over time.",
   reflect3Times: "Reflect 3 times",
   reflect3TimesDesc: "Write three journal entries this week.",
   trackMood5Times: "Track mood 5 times",
@@ -832,6 +880,55 @@ const ru: Record<keyof typeof en, string> = {
   missed: "Пропущено",
   noActiveGoals:
     "Активных целей пока нет. Начните с маленькой поддерживающей цели ниже.",
+  achievements: "Достижения",
+  reflectionMilestones: "Этапы рефлексии",
+  achievementsSubtitle:
+    "Небольшие этапы, которые отражают ваш прогресс в заботе о себе.",
+  achievementStatusCompleted: "Завершено",
+  achievementStatusInProgress: "В процессе",
+  achievementStatusNotYet: "Пока нет",
+  achievementCategoryReflection: "Рефлексия",
+  achievementCategoryMood: "Осознанность настроения",
+  achievementCategoryAiSupport: "AI-поддержка",
+  achievementCategorySelfCare: "Настройка заботы о себе",
+  achievementFirstReflection: "Первая запись",
+  achievementFirstReflectionDesc: "Ваша первая запись в дневнике завершена.",
+  achievementThreeDayReflection: "3 дня рефлексии",
+  achievementThreeDayReflectionDesc:
+    "Вы занимались рефлексией три дня. Маленькие шаги важны.",
+  achievementConsistentJournaling: "Регулярное ведение дневника",
+  achievementConsistentJournalingDesc:
+    "Вы завершили 5 записей в дневнике.",
+  achievementFirstMoodCheckIn: "Первая отметка настроения",
+  achievementFirstMoodCheckInDesc:
+    "Вы сделали первую отметку настроения.",
+  achievementMoodAwareness: "Осознанность настроения",
+  achievementMoodAwarenessDesc: "Вы сделали 5 отметок настроения.",
+  achievementWeeklyMoodReview: "Еженедельный обзор настроения",
+  achievementWeeklyMoodReviewDesc:
+    "Вы посмотрели свои эмоциональные паттерны за неделю.",
+  achievementFirstAiInsight: "Первый AI-инсайт",
+  achievementFirstAiInsightDesc:
+    "Вы получили первый AI-инсайт для рефлексии.",
+  achievementCompletedAiQuiz: "Завершён AI-опрос",
+  achievementCompletedAiQuizDesc:
+    "Вы завершили первый AI-опрос для рефлексии.",
+  achievementFirstWeeklySummary: "Первое недельное резюме",
+  achievementFirstWeeklySummaryDesc:
+    "Вы завершили первое недельное резюме.",
+  achievementSupportContactAdded: "Доверенное лицо добавлено",
+  achievementSupportContactAddedDesc:
+    "Вы добавили доверенного человека для трудных моментов.",
+  achievementPrivacyReady: "Конфиденциальность настроена",
+  achievementPrivacyReadyDesc:
+    "Вы открыли или настроили Privacy Center.",
+  achievementWelcomeBack: "С возвращением",
+  achievementWelcomeBackDesc:
+    "Вы вернулись к рефлексии после перерыва.",
+  achievementEncouragementSmallSteps: "Маленькие шаги важны.",
+  achievementEncouragementShowedUp: "Вы нашли время для себя.",
+  achievementEncouragementAwareness:
+    "Рефлексия помогает развивать эмоциональную осознанность.",
   reflect3Times: "Отразить мысли 3 раза",
   reflect3TimesDesc: "Напишите три записи в дневнике на этой неделе.",
   trackMood5Times: "Отследить настроение 5 раз",
@@ -1148,6 +1245,55 @@ const kk: Record<keyof typeof en, string> = {
   missed: "Өткізілді",
   noActiveGoals:
     "Әзірге белсенді мақсат жоқ. Төмендегі шағын қолдау мақсатынан бастаңыз.",
+  achievements: "Жетістіктер",
+  reflectionMilestones: "Рефлексия кезеңдері",
+  achievementsSubtitle:
+    "Эмоциялық өзін-өзі күтудегі прогресті көрсететін шағын кезеңдер.",
+  achievementStatusCompleted: "Аяқталды",
+  achievementStatusInProgress: "Орындалуда",
+  achievementStatusNotYet: "Әзірге жоқ",
+  achievementCategoryReflection: "Рефлексия",
+  achievementCategoryMood: "Көңіл-күйді түсіну",
+  achievementCategoryAiSupport: "AI қолдау",
+  achievementCategorySelfCare: "Өзін-өзі күту баптауы",
+  achievementFirstReflection: "Алғашқы жазба",
+  achievementFirstReflectionDesc: "Күнделіктегі алғашқы жазбаңыз аяқталды.",
+  achievementThreeDayReflection: "3 күндік рефлексия",
+  achievementThreeDayReflectionDesc:
+    "Сіз үш күн бойы рефлексия жасадыңыз. Кішкентай қадамдар маңызды.",
+  achievementConsistentJournaling: "Тұрақты күнделік жүргізу",
+  achievementConsistentJournalingDesc:
+    "Сіз күнделікте 5 жазба аяқтадыңыз.",
+  achievementFirstMoodCheckIn: "Алғашқы көңіл-күй белгілеуі",
+  achievementFirstMoodCheckInDesc:
+    "Сіз алғашқы көңіл-күй белгілеуін жасадыңыз.",
+  achievementMoodAwareness: "Көңіл-күйді түсіну",
+  achievementMoodAwarenessDesc: "Сіз 5 көңіл-күй белгілеуін жасадыңыз.",
+  achievementWeeklyMoodReview: "Апталық көңіл-күй шолуы",
+  achievementWeeklyMoodReviewDesc:
+    "Сіз апта ішіндегі көңіл-күй үлгілерін қарадыңыз.",
+  achievementFirstAiInsight: "Алғашқы AI-инсайт",
+  achievementFirstAiInsightDesc:
+    "Сіз рефлексияға арналған алғашқы AI-инсайт алдыңыз.",
+  achievementCompletedAiQuiz: "AI сауалнама аяқталды",
+  achievementCompletedAiQuizDesc:
+    "Сіз алғашқы AI рефлексия сауалнамасын аяқтадыңыз.",
+  achievementFirstWeeklySummary: "Алғашқы апталық қорытынды",
+  achievementFirstWeeklySummaryDesc:
+    "Сіз алғашқы апталық қорытындыны аяқтадыңыз.",
+  achievementSupportContactAdded: "Сенімді адам қосылды",
+  achievementSupportContactAddedDesc:
+    "Сіз қиын сәттер үшін сенімді адамды қостыңыз.",
+  achievementPrivacyReady: "Құпиялық дайын",
+  achievementPrivacyReadyDesc:
+    "Сіз Privacy Center бөлімін аштыңыз немесе баптадыңыз.",
+  achievementWelcomeBack: "Қайта оралу",
+  achievementWelcomeBackDesc:
+    "Сіз үзілістен кейін рефлексияға қайта оралдыңыз.",
+  achievementEncouragementSmallSteps: "Кішкентай қадамдар маңызды.",
+  achievementEncouragementShowedUp: "Сіз өзіңізге уақыт бөлдіңіз.",
+  achievementEncouragementAwareness:
+    "Рефлексия эмоциялық түсінікті дамытуға көмектеседі.",
   reflect3Times: "3 рет ойлану",
   reflect3TimesDesc: "Осы аптада үш күнделік жазбасын жазыңыз.",
   trackMood5Times: "Көңіл-күйді 5 рет бақылау",
