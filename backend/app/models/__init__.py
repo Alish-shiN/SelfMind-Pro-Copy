@@ -13,3 +13,9 @@ from app.models.ai_quiz_result import AIQuizResult
 from app.models.admin_content import AdminContentItem
 from app.models.reminder_preference import ReminderPreference
 from app.models.safety_flag import SafetyFlag
+
+from app.models.community_report import CommunityReport
+from app.models.community_reaction import CommunityReaction
+
+from app.models.goal import Goal
+from app.models.goal_completion import GoalCompletion

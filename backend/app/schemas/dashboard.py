@@ -24,9 +24,7 @@ class DashboardRecentEntry(BaseModel):
     is_private: bool
     created_at: datetime
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
 
 class DashboardLatestAnalysis(BaseModel):
@@ -36,6 +34,18 @@ class DashboardLatestAnalysis(BaseModel):
     confidence_score: float
     short_summary: str
     recommendation: str
+
+
+class DashboardQuizActionPlan(BaseModel):
+    result_id: int
+    session_id: int
+    quiz_type: str
+    quiz_title: str
+    created_at: datetime
+    score: float
+    severity_level: str
+    summary: str
+    next_actions: list[str]
 
 
 class DashboardHomeResponse(BaseModel):
