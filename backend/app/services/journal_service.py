@@ -28,8 +28,14 @@ class JournalService:
             notification_time=payload.notification_time,
         )
 
-        self.safety_service.flag_if_needed(current_user, "journal_entry", entry.id, payload.content, mood_score=payload.mood_score)
-        self.analysis_service.generate_for_entry(entry.id)
+        self.safety_service.flag_if_needed(
+            current_user,
+            "journal_entry",
+            entry.id,
+            payload.content,
+            mood_score=payload.mood_score,
+        )
+        self.analysis_service.generate_for_entry(entry.id, language=payload.language)
         return entry
 
     def get_my_entries(self, current_user: User):
@@ -39,8 +45,7 @@ class JournalService:
         entry = self.repo.get_by_id_and_user(entry_id, current_user.id)
         if not entry:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Journal entry not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found"
             )
         return entry
 
@@ -48,8 +53,7 @@ class JournalService:
         entry = self.repo.get_by_id_and_user(entry_id, current_user.id)
         if not entry:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Journal entry not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found"
             )
 
         update_data = payload.model_dump(exclude_unset=True)
@@ -59,8 +63,16 @@ class JournalService:
                 current_user,
                 "journal_entry",
                 updated_entry.id,
-                payload.content if payload.content is not None else updated_entry.content,
-                mood_score=payload.mood_score if payload.mood_score is not None else updated_entry.mood_score,
+                (
+                    payload.content
+                    if payload.content is not None
+                    else updated_entry.content
+                ),
+                mood_score=(
+                    payload.mood_score
+                    if payload.mood_score is not None
+                    else updated_entry.mood_score
+                ),
             )
 
         self.analysis_service.regenerate_for_entry(current_user, updated_entry.id)
@@ -71,8 +83,7 @@ class JournalService:
         entry = self.repo.get_by_id_and_user(entry_id, current_user.id)
         if not entry:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Journal entry not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found"
             )
 
         self.repo.delete(entry)

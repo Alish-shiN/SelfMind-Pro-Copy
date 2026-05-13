@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,28 +7,31 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { DecorBlobs } from '../components/DecorBlobs';
-import { colors } from '../theme/colors';
-import { getDashboardHome } from '../api/dashboard';
-import { ApiError } from '../api/client';
-import { useAuth } from '../context/AuthContext';
-import { formatMoodLine, moodEmoji } from '../utils/mood';
-import type { HomeStackParamList } from '../navigation/types';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { DecorBlobs } from "../components/DecorBlobs";
+import { colors } from "../theme/colors";
+import { getDashboardHome } from "../api/dashboard";
+import { ApiError } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import { formatMoodLine, moodEmoji } from "../utils/mood";
+import { useTranslation } from "../i18n/I18nContext";
+import { shouldShowImmediateHelp } from "../lib/safetySupport";
+import type { HomeStackParamList } from "../navigation/types";
 
-type Props = NativeStackScreenProps<HomeStackParamList, 'HomeMain'>;
+type Props = NativeStackScreenProps<HomeStackParamList, "HomeMain">;
 
 export function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<Awaited<ReturnType<typeof getDashboardHome>> | null>(
-    null
-  );
+  const [data, setData] = useState<Awaited<
+    ReturnType<typeof getDashboardHome>
+  > | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -36,15 +39,13 @@ export function HomeScreen({ navigation }: Props) {
       const d = await getDashboardHome();
       setData(d);
     } catch (e) {
-      if (
-        e instanceof ApiError &&
-        (e.status === 401 || e.status === 403)
-      ) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         await signOut();
         setError(null);
         return;
       }
-      const msg = e instanceof ApiError ? e.message : 'Could not load dashboard.';
+      const msg =
+        e instanceof ApiError ? e.message : t("couldNotLoadDashboard");
       setError(msg);
     } finally {
       setLoading(false);
@@ -62,15 +63,30 @@ export function HomeScreen({ navigation }: Props) {
   };
 
   const analysis = data?.latest_analysis;
-  const moodLine = formatMoodLine(analysis?.emotion_label, analysis?.sentiment_label);
+  const moodLine = formatMoodLine(
+    analysis?.emotion_label,
+    analysis?.sentiment_label,
+  );
   const emoji = moodEmoji(analysis?.emotion_label, analysis?.sentiment_label);
   const advice =
     analysis?.recommendation ||
     analysis?.short_summary ||
-    'Start journaling to receive personalized insights and advice.';
+    t("startJournalingAdvice");
+  const latestEntry = data?.recent_entries?.[0];
+  const latestQuizPlan = data?.latest_quiz_action_plan;
+  const showImmediateHelp = shouldShowImmediateHelp({
+    recentMood: latestEntry?.mood_score ?? data?.stats.average_mood,
+    recentJournalText: latestEntry?.title,
+    recentAiInsight: analysis
+      ? `${analysis.emotion_label} ${analysis.sentiment_label} ${analysis.short_summary} ${analysis.recommendation}`
+      : null,
+    recentQuizResult: latestQuizPlan
+      ? `${latestQuizPlan.severity_level} ${latestQuizPlan.summary} ${latestQuizPlan.next_actions.join(" ")}`
+      : null,
+  });
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <DecorBlobs variant="home" />
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -88,7 +104,7 @@ export function HomeScreen({ navigation }: Props) {
           <View style={styles.errBox}>
             <Text style={styles.errText}>{error}</Text>
             <Pressable style={styles.retry} onPress={load}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t("retry")}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -96,7 +112,8 @@ export function HomeScreen({ navigation }: Props) {
         {data ? (
           <>
             <Text style={styles.greeting}>
-              Hi, <Text style={styles.greetingBold}>{data.user.username}</Text>
+              {t("homeGreetingPrefix")}{" "}
+              <Text style={styles.greetingBold}>{data.user.username}</Text>
             </Text>
 
             <Text style={styles.moodLine}>{moodLine}</Text>
@@ -105,25 +122,34 @@ export function HomeScreen({ navigation }: Props) {
               <Text style={styles.emoji}>{emoji}</Text>
             </View>
 
-            <Text style={styles.adviseLabel}>Advise :</Text>
+            <Text style={styles.adviseLabel}>{t("advice")}</Text>
             <Text style={styles.adviseBody}>{advice}</Text>
 
-            <Pressable style={styles.safetyCard} onPress={() => navigation.navigate('Safety')}>
-              <View style={styles.safetyIcon}>
-                <Ionicons name="warning-outline" size={22} color="#B91C1C" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.safetyTitle}>Need immediate help?</Text>
-                <Text style={styles.safetyText}>Open crisis resources and safety support.</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
+            {showImmediateHelp ? (
+              <Pressable
+                style={styles.safetyCard}
+                onPress={() => navigation.navigate("Safety")}
+              >
+                <View style={styles.safetyIcon}>
+                  <Ionicons name="warning-outline" size={22} color="#B91C1C" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.safetyTitle}>{t("immediateHelp")}</Text>
+                  <Text style={styles.safetyText}>{t("crisisResources")}</Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            ) : null}
 
             <Pressable
               style={styles.actionBtn}
-              onPress={() => navigation.navigate('AiDiary')}
+              onPress={() => navigation.navigate("AiDiary")}
             >
-              <Text style={styles.actionLabel}>AI-Diary</Text>
+              <Text style={styles.actionLabel}>{t("aiDiary")}</Text>
               <View style={styles.actionIcon}>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
@@ -131,9 +157,9 @@ export function HomeScreen({ navigation }: Props) {
 
             <Pressable
               style={styles.actionBtn}
-              onPress={() => navigation.navigate('AiChat')}
+              onPress={() => navigation.navigate("AiChat")}
             >
-              <Text style={styles.actionLabel}>AI-Chat</Text>
+              <Text style={styles.actionLabel}>{t("aiChat")}</Text>
               <View style={styles.actionIcon}>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
@@ -141,16 +167,16 @@ export function HomeScreen({ navigation }: Props) {
 
             <Pressable
               style={styles.actionBtn}
-              onPress={() => navigation.navigate('AiQuiz')}
+              onPress={() => navigation.navigate("AiQuiz")}
             >
-              <Text style={styles.actionLabel}>AI-Quiz</Text>
+              <Text style={styles.actionLabel}>{t("aiQuiz")}</Text>
               <View style={styles.actionIcon}>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
             </Pressable>
 
             <Pressable style={styles.signOut} onPress={() => signOut()}>
-              <Text style={styles.signOutText}>Sign out</Text>
+              <Text style={styles.signOutText}>{t("signOut")}</Text>
             </Pressable>
           </>
         ) : null}
@@ -175,11 +201,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   errText: {
-    color: '#B91C1C',
+    color: "#B91C1C",
     marginBottom: 8,
   },
   retry: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     backgroundColor: colors.coral,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -187,7 +213,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     color: colors.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   greeting: {
     fontSize: 22,
@@ -196,24 +222,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   greetingBold: {
-    fontWeight: '700',
+    fontWeight: "700",
   },
   moodLine: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 17,
     color: colors.textMuted,
     marginBottom: 16,
   },
   emojiCircle: {
-    alignSelf: 'center',
+    alignSelf: "center",
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#FFE566',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FFE566",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -223,43 +249,48 @@ const styles = StyleSheet.create({
     fontSize: 64,
   },
   adviseLabel: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.text,
     marginBottom: 8,
   },
   adviseBody: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 15,
     color: colors.textMuted,
     lineHeight: 22,
     marginBottom: 20,
   },
   safetyCard: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: "#FFF7ED",
     borderRadius: 20,
     padding: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#FED7AA',
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderColor: "#FED7AA",
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   safetyIcon: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  safetyTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
-  safetyText: { fontSize: 12, color: colors.textMuted, marginTop: 2, fontWeight: '600' },
+  safetyTitle: { fontSize: 15, fontWeight: "900", color: colors.text },
+  safetyText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+    fontWeight: "600",
+  },
   actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.periwinkle,
     borderRadius: 26,
     paddingVertical: 16,
@@ -269,7 +300,7 @@ const styles = StyleSheet.create({
   actionLabel: {
     flex: 1,
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text,
   },
   actionIcon: {
@@ -277,17 +308,17 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.accentGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   signOut: {
     marginTop: 16,
-    alignSelf: 'center',
+    alignSelf: "center",
     paddingVertical: 8,
   },
   signOutText: {
     fontSize: 14,
     color: colors.textMuted,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
 });

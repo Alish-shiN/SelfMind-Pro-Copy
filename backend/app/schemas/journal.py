@@ -39,7 +39,7 @@ class JournalBase(BaseModel):
 
 
 class JournalCreate(JournalBase):
-    pass
+    language: str = Field(default="en", pattern="^(en|ru|kk)$")
 
 
 class JournalUpdate(BaseModel):
@@ -72,6 +72,4 @@ class JournalResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {
-        "from_attributes": True
-    }   
+    model_config = {"from_attributes": True}

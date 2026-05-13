@@ -3,19 +3,26 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.repo.analytics_repository import AnalyticsRepository
 from app.repo.dashboard_repository import DashboardRepository
+from app.services.ai_quiz_service import AIQuizService
 
 
 class DashboardService:
     def __init__(self, db: Session):
         self.analytics_repo = AnalyticsRepository(db)
         self.dashboard_repo = DashboardRepository(db)
+        self.ai_quiz_service = AIQuizService(db)
 
     def get_home(self, current_user: User):
         summary = self.analytics_repo.get_summary(current_user.id)
         active_dates = self.analytics_repo.get_active_dates(current_user.id)
         streak_data = self.analytics_repo.calculate_streaks(active_dates)
-        recent_entries = self.dashboard_repo.get_recent_entries(current_user.id, limit=5)
+        recent_entries = self.dashboard_repo.get_recent_entries(
+            current_user.id, limit=5
+        )
         latest_analysis = self.dashboard_repo.get_latest_analysis(current_user.id)
+        latest_quiz_action_plan = self.ai_quiz_service.get_latest_action_plan(
+            current_user
+        )
 
         latest_analysis_payload = None
         if latest_analysis:
@@ -43,4 +50,5 @@ class DashboardService:
             "recent_entries": recent_entries,
             "latest_analysis": latest_analysis_payload,
             "active_dates": [d.isoformat() for d in active_dates],
+            "latest_quiz_action_plan": latest_quiz_action_plan,
         }
