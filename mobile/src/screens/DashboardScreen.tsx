@@ -398,6 +398,25 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           <StatCard label="Best" value={`${stats?.longest_streak ?? 0}d`} icon="🏆" />
         </View>
 
+        <View style={styles.section}>
+          <View style={styles.archiveCard}>
+            <View style={styles.archiveIcon}>
+              <Ionicons name="search-outline" size={20} color={colors.coral} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.archiveTitle}>Search your history</Text>
+              <Text style={styles.archiveSubtitle}>Find past journal entries, insights, moods, and saved reflections.</Text>
+            </View>
+            <Pressable
+              style={styles.archiveButton}
+              onPress={() => navigation.navigate('ArchiveSearch')}
+            >
+              <Text style={styles.archiveButtonText}>Open archive</Text>
+            </Pressable>
+          </View>
+        </View>
+
+
         {data?.latest_quiz_action_plan ? (
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
@@ -817,6 +836,30 @@ const styles = StyleSheet.create({
   filterChipOn: { backgroundColor: '#FFF0EE', borderColor: colors.coral },
   filterChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'capitalize' },
   filterChipTextOn: { color: colors.coral },
+
+
+  archiveCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  archiveIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF3F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  archiveTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
+  archiveSubtitle: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginTop: 2 },
+  archiveButton: { backgroundColor: colors.coral, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  archiveButtonText: { color: '#fff', fontWeight: '900', fontSize: 11 },
 
   quizPlanCard: {
     backgroundColor: colors.white,

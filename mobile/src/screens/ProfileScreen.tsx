@@ -634,6 +634,21 @@ export function ProfileScreen({ navigation }: Props) {
               </View>
             </View>
 
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Reflection tools</Text>
+              <View style={styles.infoCard}>
+                <Pressable style={styles.infoRow} onPress={() => navigation.navigate('ArchiveSearch')}>
+                  <Ionicons name="search-outline" size={20} color={colors.coral} />
+                  <View style={styles.infoTextWrap}>
+                    <Text style={styles.infoLabel}>Archive & Search</Text>
+                    <Text style={styles.infoValue}>Find past journals, insights, moods, and saved reflections</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            </View>
+
+
 
 
             {preferences ? (

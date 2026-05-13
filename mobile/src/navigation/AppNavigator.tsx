@@ -22,6 +22,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { SafetyScreen } from '../screens/SafetyScreen';
 import { AdminPanelScreen } from '../screens/AdminPanelScreen';
 import { PersonalizationOnboardingScreen } from '../screens/PersonalizationOnboardingScreen';
+import { ArchiveSearchScreen } from '../screens/ArchiveSearchScreen';
 import { getCurrentUser, getUserPreferences, UserPreferences } from '../api/user';
 import { colors } from '../theme/colors';
 
@@ -227,6 +228,7 @@ export function AppNavigator() {
           <>
             <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
             <RootStack.Screen name="Profile" component={ProfileScreen} />
+            <RootStack.Screen name="ArchiveSearch" component={ArchiveSearchScreen} />
           </>
         ) : !onboardingDone ? (
           <RootStack.Screen name="Onboarding">

@@ -7,6 +7,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   PersonalizationOnboarding: undefined;
   Profile: undefined;
+  ArchiveSearch: { initialTab?: 'journals' | 'insights' | 'favorites' } | undefined;
 };
 
 export type HomeStackParamList = {
