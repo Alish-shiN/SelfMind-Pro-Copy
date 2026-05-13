@@ -1,4 +1,6 @@
-import { apiFetch } from './client';
+import { API_BASE_URL, API_PREFIX } from '../constants/config';
+import { getToken } from '../lib/storage';
+import { ApiError, apiFetch } from './client';
 import type { UserResponse } from './auth';
 
 export type PreferredReflectionFormat = 'diary' | 'chat' | 'quiz';
@@ -65,6 +67,8 @@ export function updateUserPreferences(payload: UserPreferencesUpdate) {
   });
 }
 
+export type PersonalExportType = 'full' | 'journal' | 'mood' | 'insights' | 'weekly_report';
+
 export type PrivacyCenterResponse = {
   notice_version: string;
   notice: {
@@ -76,6 +80,7 @@ export type PrivacyCenterResponse = {
     controls: string[];
   };
   preferences: UserPreferences;
+  export_options?: Array<{ type: PersonalExportType; label: string; formats: string[] }>;
 };
 
 export function getPrivacyCenter() {
@@ -89,8 +94,45 @@ export function acceptPrivacyNotice() {
   });
 }
 
-export function exportPersonalData() {
-  return apiFetch<Record<string, unknown>>('/users/me/export', { auth: true });
+export type WeeklyReflectionReport = {
+  exported_at: string;
+  export_type: 'weekly_report';
+  date_range: { start_date: string; end_date: string };
+  has_enough_data: boolean;
+  fallback_message: string | null;
+  mood_overview: { entries_count: number; average_mood: number; min_mood: number; max_mood: number; trend: string } | null;
+  emotional_patterns: Array<{ emotion_label: string; count: number }>;
+  reflection_summary: string | null;
+  suggested_focus_next_week: string;
+  insights_summary?: Array<Record<string, unknown>>;
+};
+
+export function exportPersonalData(exportType: PersonalExportType = 'full') {
+  return apiFetch<Record<string, unknown>>(`/users/me/export?export_type=${exportType}`, { auth: true });
+}
+
+export function getWeeklyReflectionReport() {
+  return apiFetch<WeeklyReflectionReport>('/users/me/export?export_type=weekly_report', { auth: true });
+}
+
+export async function downloadWeeklyPdfReport() {
+  const token = await getToken();
+  const res = await fetch(`${API_BASE_URL}${API_PREFIX}/users/me/export?export_type=weekly_report&format=pdf`, {
+    headers: {
+      Accept: 'application/pdf',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new ApiError(body || res.statusText, res.status, body);
+  }
+  const blob = await res.blob();
+  return {
+    blob,
+    size: blob.size,
+    contentType: blob.type || 'application/pdf',
+  };
 }
 
 export function deleteAccount() {

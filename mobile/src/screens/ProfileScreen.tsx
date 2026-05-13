@@ -22,12 +22,14 @@ import {
   AITone,
   CommunityProfileVisibility,
   deleteAccount as deleteUserAccount,
+  downloadWeeklyPdfReport,
   exportPersonalData,
   getCurrentUser,
   getPrivacyCenter,
   getUserPreferences,
   PreferredReflectionFormat,
   ReminderFrequency,
+  PersonalExportType,
   PrivacyCenterResponse,
   updateUserPreferences,
   UserPreferences,
@@ -274,10 +276,12 @@ function PrivacyCenterModal({ visible, preferences, onClose, onSaved, onDeleted 
   const [center, setCenter] = useState<PrivacyCenterResponse | null>(null);
   const [draft, setDraft] = useState<UserPreferences | null>(preferences);
   const [saving, setSaving] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
     setDraft(preferences);
+    setExportStatus(null);
     getPrivacyCenter()
       .then((data) => {
         setCenter(data);
@@ -322,13 +326,33 @@ function PrivacyCenterModal({ visible, preferences, onClose, onSaved, onDeleted 
     }
   };
 
-  const exportData = async () => {
+  const exportData = async (exportType: PersonalExportType, label: string) => {
     setSaving(true);
+    setExportStatus(`Preparing ${label}…`);
     try {
-      const data = await exportPersonalData();
-      Alert.alert('Personal data export ready', `Export sections: ${Object.keys(data).join(', ')}. Treat this as sensitive-like emotional data.`);
+      const data = await exportPersonalData(exportType);
+      setExportStatus(`${label} ready: ${Object.keys(data).join(', ')}`);
+      Alert.alert(`${label} ready`, 'Export generated successfully. Treat this as sensitive-like emotional data.');
     } catch (e) {
-      Alert.alert('Export error', e instanceof ApiError ? e.message : 'Could not export your data.');
+      const message = e instanceof ApiError ? e.message : `Could not export ${label}.`;
+      setExportStatus(message);
+      Alert.alert('Export error', message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const downloadPdfReport = async () => {
+    setSaving(true);
+    setExportStatus('Preparing weekly PDF report…');
+    try {
+      const pdf = await downloadWeeklyPdfReport();
+      setExportStatus(`Weekly PDF ready (${Math.max(1, Math.round(pdf.size / 1024))} KB).`);
+      Alert.alert('Weekly PDF report ready', 'PDF summary generated successfully. It includes a reflection disclaimer and should be stored privately.');
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : 'Could not generate weekly PDF report.';
+      setExportStatus(message);
+      Alert.alert('PDF report error', message);
     } finally {
       setSaving(false);
     }
@@ -383,14 +407,35 @@ function PrivacyCenterModal({ visible, preferences, onClose, onSaved, onDeleted 
           {(center?.notice.ai_processing ?? []).map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
           {(center?.notice.stored_data ?? []).map((item) => <Text key={item} style={styles.bulletText}>• {item}</Text>)}
 
+          <Text style={styles.sectionLabel}>Export & Reports</Text>
+          <View style={styles.privacyActionsCard}>
+            <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={() => exportData('journal', 'Journal history export')} disabled={saving}>
+              <Ionicons name="book-outline" size={18} color={colors.coral} />
+              <Text style={styles.secondaryActionText}>Export journal history</Text>
+            </Pressable>
+            <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={() => exportData('mood', 'Mood history export')} disabled={saving}>
+              <Ionicons name="analytics-outline" size={18} color={colors.coral} />
+              <Text style={styles.secondaryActionText}>Export mood history</Text>
+            </Pressable>
+            <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={() => exportData('insights', 'Insights archive export')} disabled={saving}>
+              <Ionicons name="sparkles-outline" size={18} color={colors.coral} />
+              <Text style={styles.secondaryActionText}>Export insights archive</Text>
+            </Pressable>
+            <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={() => exportData('full', 'Full personal data export')} disabled={saving}>
+              <Ionicons name="archive-outline" size={18} color={colors.coral} />
+              <Text style={styles.secondaryActionText}>Export full personal data</Text>
+            </Pressable>
+            <Pressable style={styles.privacyActionBtn} onPress={downloadPdfReport} disabled={saving}>
+              <Ionicons name="document-text-outline" size={18} color="#fff" />
+              <Text style={styles.privacyActionText}>Download weekly PDF report</Text>
+            </Pressable>
+            {exportStatus ? <Text style={styles.privacyText}>{exportStatus}</Text> : null}
+          </View>
+
           <View style={styles.privacyActionsCard}>
             <Pressable style={styles.privacyActionBtn} onPress={acceptNotice} disabled={saving}>
               <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
               <Text style={styles.privacyActionText}>{draft.privacy_preferences.privacy_notice_accepted ? 'Re-accept privacy notice' : 'Accept privacy notice'}</Text>
-            </Pressable>
-            <Pressable style={[styles.privacyActionBtn, styles.secondaryActionBtn]} onPress={exportData} disabled={saving}>
-              <Ionicons name="download-outline" size={18} color={colors.coral} />
-              <Text style={styles.secondaryActionText}>Export personal data</Text>
             </Pressable>
             <Pressable style={[styles.privacyActionBtn, styles.dangerActionBtn]} onPress={confirmDelete} disabled={saving}>
               <Ionicons name="trash-outline" size={18} color="#fff" />

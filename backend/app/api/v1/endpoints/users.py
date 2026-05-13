@@ -1,7 +1,8 @@
-from datetime import datetime, timezone
-from typing import Any
+from collections import Counter
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -38,6 +39,17 @@ DEFAULT_PRIVACY = {
     "privacy_notice_version": None,
     "privacy_notice_accepted_at": None,
 }
+EXPORT_OPTIONS = [
+    {"type": "journal", "label": "Journal history", "formats": ["json"]},
+    {"type": "mood", "label": "Mood history", "formats": ["json"]},
+    {"type": "insights", "label": "Personal insights archive", "formats": ["json"]},
+    {"type": "full", "label": "Full personal data export", "formats": ["json"]},
+    {
+        "type": "weekly_report",
+        "label": "Weekly reflection report",
+        "formats": ["json", "pdf"],
+    },
+]
 PRIVACY_NOTICE = {
     "title": "SelfMind Pro Privacy Center",
     "summary": "We treat emotional data as sensitive-like data and keep privacy controls close to your journaling and community experience.",
@@ -105,6 +117,7 @@ def get_privacy_center(current_user: User = Depends(get_current_user)):
         "notice_version": PRIVACY_NOTICE_VERSION,
         "notice": PRIVACY_NOTICE,
         "preferences": preferences,
+        "export_options": EXPORT_OPTIONS,
     }
 
 
@@ -130,70 +143,37 @@ def accept_privacy_notice(
 
 @router.get("/me/export")
 def export_my_data(
+    export_type: Literal[
+        "full", "journal", "mood", "insights", "weekly_report"
+    ] = Query(default="full"),
+    file_format: Literal["json", "pdf"] = Query(default="json", alias="format"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return {
-        "exported_at": datetime.now(timezone.utc).isoformat(),
-        "notice": "Export includes sensitive-like emotional data. Store it somewhere private.",
-        "account": _model_dict(
-            current_user,
-            exclude={"hashed_password"},
-        ),
-        "profile": _model_dict(current_user.profile) if current_user.profile else None,
-        "preferences": _serialize_preferences(current_user),
-        "journal_entries": [
-            {
-                **_model_dict(entry),
-                "analysis": _model_dict(entry.analysis) if entry.analysis else None,
-            }
-            for entry in _journal_entries(db, current_user.id)
-        ],
-        "chat_sessions": [
-            {
-                **_model_dict(session),
-                "messages": [_model_dict(message) for message in session.messages],
-            }
-            for session in _chat_sessions(db, current_user.id)
-        ],
-        "ai_quiz_sessions": [
-            {
-                **_model_dict(session),
-                "answers": [_model_dict(answer) for answer in session.answers],
-                "result": _model_dict(session.result) if session.result else None,
-            }
-            for session in _quiz_sessions(db, current_user.id)
-        ],
-        "community": {
-            "posts": [
-                _model_dict(post) for post in _community_posts(db, current_user.id)
-            ],
-            "comments": [
-                _model_dict(comment)
-                for comment in _community_comments(db, current_user.id)
-            ],
-            "reactions": [
-                _model_dict(reaction)
-                for reaction in _community_reactions(db, current_user.id)
-            ],
-            "reports_submitted": [
-                _model_dict(report)
-                for report in _community_reports(db, current_user.id)
-            ],
-        },
-        "reminder_preferences": [
-            _model_dict(preference)
-            for preference in db.query(ReminderPreference)
-            .filter(ReminderPreference.user_id == current_user.id)
-            .all()
-        ],
-        "safety_flags": [
-            _model_dict(flag)
-            for flag in db.query(SafetyFlag)
-            .filter(SafetyFlag.user_id == current_user.id)
-            .all()
-        ],
-    }
+    if file_format == "pdf":
+        if export_type != "weekly_report":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="PDF export is currently supported for weekly_report only.",
+            )
+        report = _weekly_reflection_report(db, current_user)
+        return Response(
+            content=_weekly_report_pdf(current_user, report),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": "attachment; filename=selfmind-weekly-report.pdf"
+            },
+        )
+
+    if export_type == "journal":
+        return _journal_export(db, current_user)
+    if export_type == "mood":
+        return _mood_export(db, current_user)
+    if export_type == "insights":
+        return _insights_export(db, current_user)
+    if export_type == "weekly_report":
+        return _weekly_reflection_report(db, current_user)
+    return _full_export(db, current_user)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -212,6 +192,304 @@ def delete_my_account(
     db.delete(current_user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _export_header(export_type: str) -> dict:
+    return {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "export_type": export_type,
+        "notice": "Export includes sensitive-like emotional data. Store it somewhere private.",
+    }
+
+
+def _journal_export(db: Session, user: User) -> dict:
+    return {
+        **_export_header("journal"),
+        "journal_entries": [
+            {
+                **_model_dict(entry),
+                "analysis": _model_dict(entry.analysis) if entry.analysis else None,
+            }
+            for entry in _journal_entries(db, user.id)
+        ],
+    }
+
+
+def _mood_export(db: Session, user: User) -> dict:
+    entries = _journal_entries(db, user.id)
+    history = [
+        {
+            "journal_entry_id": entry.id,
+            "date": entry.created_at.date().isoformat(),
+            "mood_score": entry.mood_score,
+            "emotion_label": entry.analysis.emotion_label if entry.analysis else None,
+            "sentiment_label": (
+                entry.analysis.sentiment_label if entry.analysis else None
+            ),
+        }
+        for entry in entries
+    ]
+    mood_scores = [entry.mood_score for entry in entries]
+    return {
+        **_export_header("mood"),
+        "summary": {
+            "entries_count": len(entries),
+            "average_mood": (
+                round(sum(mood_scores) / len(mood_scores), 2) if mood_scores else None
+            ),
+            "min_mood": min(mood_scores) if mood_scores else None,
+            "max_mood": max(mood_scores) if mood_scores else None,
+        },
+        "mood_history": history,
+    }
+
+
+def _insights_export(db: Session, user: User) -> dict:
+    return {
+        **_export_header("insights"),
+        "journal_insights": [
+            _model_dict(entry.analysis)
+            for entry in _journal_entries(db, user.id)
+            if entry.analysis
+        ],
+        "ai_quiz_results": [
+            {
+                **_model_dict(session),
+                "answers": [_model_dict(answer) for answer in session.answers],
+                "result": _model_dict(session.result) if session.result else None,
+            }
+            for session in _quiz_sessions(db, user.id)
+        ],
+        "chat_sessions": [
+            {
+                **_model_dict(session),
+                "messages": [_model_dict(message) for message in session.messages],
+            }
+            for session in _chat_sessions(db, user.id)
+        ],
+    }
+
+
+def _full_export(db: Session, user: User) -> dict:
+    journal_export = _journal_export(db, user)
+    insights_export = _insights_export(db, user)
+    mood_export = _mood_export(db, user)
+    return {
+        **_export_header("full"),
+        "account": _model_dict(
+            user,
+            exclude={"hashed_password"},
+        ),
+        "profile": _model_dict(user.profile) if user.profile else None,
+        "preferences": _serialize_preferences(user),
+        "journal_entries": journal_export["journal_entries"],
+        "journal_export": journal_export,
+        "mood_export": mood_export,
+        "journal_insights": insights_export["journal_insights"],
+        "ai_quiz_sessions": insights_export["ai_quiz_results"],
+        "ai_quiz_results": insights_export["ai_quiz_results"],
+        "chat_sessions": insights_export["chat_sessions"],
+        "insights_export": insights_export,
+        "community": {
+            "posts": [_model_dict(post) for post in _community_posts(db, user.id)],
+            "comments": [
+                _model_dict(comment) for comment in _community_comments(db, user.id)
+            ],
+            "reactions": [
+                _model_dict(reaction) for reaction in _community_reactions(db, user.id)
+            ],
+            "reports_submitted": [
+                _model_dict(report) for report in _community_reports(db, user.id)
+            ],
+        },
+        "reminder_preferences": [
+            _model_dict(preference)
+            for preference in db.query(ReminderPreference)
+            .filter(ReminderPreference.user_id == user.id)
+            .all()
+        ],
+        "safety_flags": [
+            _model_dict(flag)
+            for flag in db.query(SafetyFlag).filter(SafetyFlag.user_id == user.id).all()
+        ],
+    }
+
+
+def _weekly_reflection_report(db: Session, user: User) -> dict:
+    end_date = date.today()
+    start_date = end_date - timedelta(days=6)
+    entries = [
+        entry
+        for entry in _journal_entries(db, user.id)
+        if start_date <= entry.created_at.date() <= end_date
+    ]
+    if len(entries) < 2:
+        return {
+            **_export_header("weekly_report"),
+            "date_range": {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            },
+            "has_enough_data": False,
+            "fallback_message": "Not enough journal data for a weekly reflection yet. Add at least two entries this week to generate patterns and suggestions.",
+            "mood_overview": None,
+            "emotional_patterns": [],
+            "reflection_summary": None,
+            "suggested_focus_next_week": "Try adding two short check-ins next week: one mood note and one reflection about what supported you.",
+        }
+
+    chronological = sorted(entries, key=lambda entry: entry.created_at)
+    mood_scores = [entry.mood_score for entry in chronological]
+    emotions = [
+        entry.analysis.emotion_label
+        for entry in chronological
+        if entry.analysis and entry.analysis.emotion_label
+    ]
+    emotion_counts = Counter(emotions)
+    top_patterns = [
+        {"emotion_label": emotion, "count": count}
+        for emotion, count in emotion_counts.most_common(5)
+    ]
+    avg_mood = round(sum(mood_scores) / len(mood_scores), 2)
+    mood_delta = mood_scores[-1] - mood_scores[0]
+    trend = "steady"
+    if mood_delta >= 2:
+        trend = "improving"
+    elif mood_delta <= -2:
+        trend = "declining"
+    top_emotion = top_patterns[0]["emotion_label"] if top_patterns else "mixed emotions"
+
+    return {
+        **_export_header("weekly_report"),
+        "date_range": {
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+        },
+        "has_enough_data": True,
+        "fallback_message": None,
+        "mood_overview": {
+            "entries_count": len(entries),
+            "average_mood": avg_mood,
+            "min_mood": min(mood_scores),
+            "max_mood": max(mood_scores),
+            "trend": trend,
+        },
+        "emotional_patterns": top_patterns,
+        "reflection_summary": f"You wrote {len(entries)} entries this week. Your average mood was {avg_mood}/10, with a mostly {trend} pattern and recurring signals around {top_emotion}.",
+        "suggested_focus_next_week": _suggested_weekly_focus(
+            avg_mood, top_emotion, trend
+        ),
+        "insights_summary": [
+            {
+                "journal_entry_id": entry.id,
+                "emotion_label": entry.analysis.emotion_label,
+                "sentiment_label": entry.analysis.sentiment_label,
+                "summary": entry.analysis.short_summary,
+                "recommendation": entry.analysis.recommendation,
+            }
+            for entry in chronological
+            if entry.analysis
+        ],
+    }
+
+
+def _suggested_weekly_focus(average_mood: float, top_emotion: str, trend: str) -> str:
+    if average_mood <= 4 or trend == "declining":
+        return "Prioritize gentle routines, lower-pressure planning, and one supportive connection you can rely on."
+    if top_emotion in {"stress", "anxiety", "anger", "sadness"}:
+        return "Track what triggers that emotion and pair each note with one small recovery action."
+    return "Keep noticing which routines support steadiness, and write one short gratitude or energy check-in after those moments."
+
+
+def _weekly_report_pdf(user: User, report: dict) -> bytes:
+    date_range = report["date_range"]
+    mood = report.get("mood_overview") or {}
+    lines = [
+        "SelfMind Pro Weekly Reflection Report",
+        f"User: {user.username if user.username else 'Anonymous'}",
+        f"Date range: {date_range['start_date']} to {date_range['end_date']}",
+        "",
+        "Mood summary:",
+        report.get("fallback_message")
+        or f"Average mood {mood.get('average_mood')}/10 across {mood.get('entries_count')} entries. Trend: {mood.get('trend')}.",
+        "",
+        "Journal summary:",
+        report.get("reflection_summary")
+        or "More journal entries are needed for a weekly summary.",
+        "",
+        "AI insights summary:",
+    ]
+    insights = report.get("insights_summary") or []
+    if insights:
+        lines.extend(
+            f"- {item['emotion_label']}: {item['summary']}" for item in insights[:6]
+        )
+    else:
+        lines.append("No AI insight summaries available for this period.")
+    lines.extend(
+        [
+            "",
+            "Suggested focus for next week:",
+            report.get("suggested_focus_next_week")
+            or "Add a few brief mood check-ins.",
+            "",
+            "Disclaimer: This report is for reflection and is not medical advice, diagnosis, or treatment.",
+        ]
+    )
+    return _simple_pdf(lines)
+
+
+def _simple_pdf(lines: list[str]) -> bytes:
+    wrapped = []
+    for line in lines:
+        if not line:
+            wrapped.append("")
+            continue
+        while len(line) > 92:
+            wrapped.append(line[:92])
+            line = line[92:]
+        wrapped.append(line)
+
+    y = 760
+    text_ops = ["BT", "/F1 11 Tf", "50 780 Td"]
+    previous_y = 780
+    for line in wrapped[:48]:
+        y -= 15
+        text_ops.append(f"0 -{previous_y - y} Td ({_pdf_escape(line)}) Tj")
+        previous_y = y
+    text_ops.append("ET")
+    stream = "\n".join(text_ops).encode("latin-1", errors="replace")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length "
+        + str(len(stream)).encode()
+        + b" >>\nstream\n"
+        + stream
+        + b"\nendstream",
+    ]
+    pdf = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(pdf))
+        pdf.extend(f"{index} 0 obj\n".encode())
+        pdf.extend(obj)
+        pdf.extend(b"\nendobj\n")
+    xref_offset = len(pdf)
+    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode())
+    pdf.extend(b"0000000000 65535 f \n")
+    for offset in offsets:
+        pdf.extend(f"{offset:010d} 00000 n \n".encode())
+    pdf.extend(
+        f"trailer << /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode()
+    )
+    return bytes(pdf)
+
+
+def _pdf_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def _serialize_preferences(user: User) -> dict:

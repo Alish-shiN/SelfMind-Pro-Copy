@@ -56,3 +56,4 @@ class PrivacyCenterResponse(BaseModel):
     notice_version: str
     notice: dict[str, Any]
     preferences: UserPreferencesResponse
+    export_options: list[dict[str, Any]] = Field(default_factory=list)
