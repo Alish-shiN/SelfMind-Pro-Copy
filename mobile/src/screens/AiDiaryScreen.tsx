@@ -1106,17 +1106,11 @@ export function AIDiaryScreen({ route, navigation }: Props) {
     load();
   };
 
-  const openArchive = () => {
+  const openJournalArchive = () => {
     const rootNavigation = navigation.getParent()?.getParent();
-    rootNavigation?.navigate(
-      "ArchiveSearch" as never,
-      { initialTab: "journals" } as never,
-    );
-  };
-
-  const openArchive = () => {
-    const rootNavigation = navigation.getParent()?.getParent();
-    rootNavigation?.navigate('ArchiveSearch' as never, { initialTab: 'journals' } as never);
+    (rootNavigation as any)?.navigate("ArchiveSearch", {
+      initialTab: "journals",
+    });
   };
 
   return (
@@ -1130,7 +1124,7 @@ export function AIDiaryScreen({ route, navigation }: Props) {
         <View style={styles.headerRight}>
           <Pressable
             style={styles.searchButton}
-            onPress={openArchive}
+            onPress={openJournalArchive}
             hitSlop={8}
           >
             <Ionicons name="search-outline" size={18} color={colors.coral} />

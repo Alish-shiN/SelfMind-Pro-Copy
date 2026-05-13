@@ -704,13 +704,6 @@ export function CommunityScreen() {
     ]);
   };
 
-  const confirmReportPost = (id: number) => {
-    Alert.alert('Report post', 'Send this post to the moderation queue?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Report', onPress: async () => { await reportPost(id); Alert.alert('Thanks', 'Moderators will review it.'); load(); } },
-    ]);
-  };
-
   const handleDeletePost = (id: number) => {
     Alert.alert(t("deletePost"), t("deletePostConfirm"), [
       { text: t("cancel"), style: "cancel" },
