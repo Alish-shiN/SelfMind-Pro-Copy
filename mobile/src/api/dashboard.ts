@@ -1,5 +1,17 @@
 import { apiFetch } from './client';
 
+export type DashboardQuizActionPlan = {
+  result_id: number;
+  session_id: number;
+  quiz_type: string;
+  quiz_title: string;
+  created_at: string;
+  score: number;
+  severity_level: string;
+  summary: string;
+  next_actions: string[];
+};
+
 export type DashboardHome = {
   user: { id: number; username: string; email: string };
   stats: {
@@ -16,6 +28,7 @@ export type DashboardHome = {
     is_private: boolean;
     created_at: string;
   }>;
+  latest_quiz_action_plan?: DashboardQuizActionPlan | null;
   latest_analysis: {
     journal_entry_id: number;
     sentiment_label: string;
