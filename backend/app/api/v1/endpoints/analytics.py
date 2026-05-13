@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -6,10 +8,13 @@ from app.core.database import get_db
 from app.models.user import User
 from app.schemas.analytics import (
     JournalAnalyticsResponse,
+    MoodAnalyticsResponse,
     JournalRecentEntry,
     JournalStreakResponse,
 )
+from app.schemas.personalization import AIPersonalizationInsightsResponse
 from app.services.analytics_service import AnalyticsService
+from app.services.personalization_service import PersonalizationService
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -20,6 +25,24 @@ def get_journal_analytics(
     current_user: User = Depends(get_current_user),
 ):
     return AnalyticsService(db).get_journal_analytics(current_user)
+
+
+@router.get("/mood", response_model=MoodAnalyticsResponse)
+def get_mood_analytics(
+    period: str = Query(default="30d", pattern="^(7d|30d|90d|6m|1y|custom)$"),
+    granularity: str = Query(default="day", pattern="^(day|week|month)$"),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return AnalyticsService(db).get_mood_analytics(
+        current_user=current_user,
+        period=period,
+        granularity=granularity,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/journal/recent", response_model=list[JournalRecentEntry])
@@ -37,3 +60,11 @@ def get_journal_streak(
     current_user: User = Depends(get_current_user),
 ):
     return AnalyticsService(db).get_streak(current_user)
+
+
+@router.get("/ai-insights", response_model=AIPersonalizationInsightsResponse)
+def get_ai_personalization_insights(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return PersonalizationService(db).get_ai_insights(current_user)
