@@ -3,19 +3,17 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.repo.ai_quiz_repository import AIQuizRepository
-from app.repo.analytics_repository import AnalyticsRepository
-from app.repo.dashboard_repository import DashboardRepository
 from app.schemas.ai_quiz import AIQuizGenerateRequest, AIQuizSubmitRequest
 from app.services.ai_quiz_engine import AIQuizEngine
+from app.services.personalization_service import PersonalizationService
 from app.services.safety_service import SafetyService
 
 
 class AIQuizService:
     def __init__(self, db: Session):
         self.repo = AIQuizRepository(db)
-        self.analytics_repo = AnalyticsRepository(db)
-        self.dashboard_repo = DashboardRepository(db)
         self.engine = AIQuizEngine()
+        self.personalization_service = PersonalizationService(db)
         self.safety_service = SafetyService(db)
 
     def generate_quiz(self, current_user: User, payload: AIQuizGenerateRequest):
@@ -32,8 +30,7 @@ class AIQuizService:
         session = self.repo.get_session_by_id_and_user(session_id, current_user.id)
         if not session:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Quiz session not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Quiz session not found"
             )
 
         return {
@@ -41,18 +38,23 @@ class AIQuizService:
             "result": session.result,
         }
 
-    def submit_quiz(self, current_user: User, session_id: int, payload: AIQuizSubmitRequest):
+    def submit_quiz(
+        self, current_user: User, session_id: int, payload: AIQuizSubmitRequest
+    ):
         session = self.repo.get_session_by_id_and_user(session_id, current_user.id)
         if not session:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Quiz session not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Quiz session not found"
             )
 
         self.repo.delete_answers_for_session(session.id)
-        created_answers = self.repo.create_answers(session.id, [item.model_dump() for item in payload.answers])
+        created_answers = self.repo.create_answers(
+            session.id, [item.model_dump() for item in payload.answers]
+        )
         for answer in created_answers:
-            self.safety_service.flag_if_needed(current_user, "ai_quiz_answer", answer.id, answer.answer_text)
+            self.safety_service.flag_if_needed(
+                current_user, "ai_quiz_answer", answer.id, answer.answer_text
+            )
 
         context = self._build_context(current_user)
         result_data = self.engine.analyze_answers(
@@ -75,11 +77,4 @@ class AIQuizService:
         return result
 
     def _build_context(self, current_user: User) -> dict:
-        summary = self.analytics_repo.get_summary(current_user.id)
-        latest_analysis = self.dashboard_repo.get_latest_analysis(current_user.id)
-
-        return {
-            "average_mood": summary.get("average_mood"),
-            "total_entries": summary.get("total_entries"),
-            "latest_emotion": latest_analysis.emotion_label if latest_analysis else None,
-        }
+        return self.personalization_service.build_context(current_user)

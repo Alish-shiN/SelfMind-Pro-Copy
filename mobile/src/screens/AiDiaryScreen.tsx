@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError, apiFetch } from '../api/client';
 import { checkSafetyText } from '../api/safety';
+import { getUserPreferences } from '../api/user';
 import { scheduleJournalEntryReminder } from '../lib/notifications';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
@@ -194,6 +195,7 @@ function NewEntryModal({
   onSafetyNeeded,
   initialEntryDate,
   initialNotificationEnabled,
+  defaultPrivate,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -201,12 +203,13 @@ function NewEntryModal({
   onSafetyNeeded: () => void;
   initialEntryDate?: string;
   initialNotificationEnabled?: boolean;
+  defaultPrivate: boolean;
 }) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [moodScore, setMoodScore] = useState(5);
   const [tagsRaw, setTagsRaw] = useState('');
-  const [isPrivate, setIsPrivate] = useState(true);
+  const [isPrivate, setIsPrivate] = useState(defaultPrivate);
   const [pushNotificationEnabled, setPushNotificationEnabled] = useState(Boolean(initialNotificationEnabled));
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationTime, setNotificationTime] = useState('20:00');
@@ -218,11 +221,15 @@ function NewEntryModal({
     setContent('');
     setMoodScore(5);
     setTagsRaw('');
-    setIsPrivate(true);
+    setIsPrivate(defaultPrivate);
     setPushNotificationEnabled(Boolean(initialNotificationEnabled));
     setNotificationTitle('');
     setNotificationTime('20:00');
   };
+
+  useEffect(() => {
+    if (visible) setIsPrivate(defaultPrivate);
+  }, [defaultPrivate, visible]);
 
   const submit = async () => {
     if (!title.trim() || !content.trim()) {
@@ -713,12 +720,19 @@ export function AIDiaryScreen({ route, navigation }: Props) {
   const [showNew, setShowNew] = useState(false);
   const [selected, setSelected] = useState<JournalEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [defaultPrivate, setDefaultPrivate] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      const data = await getEntries();
+      const [data, preferences] = await Promise.all([
+        getEntries(),
+        getUserPreferences().catch(() => null),
+      ]);
       setEntries(data);
+      if (preferences) {
+        setDefaultPrivate(preferences.privacy_preferences.journal_private_default);
+      }
     } catch (e) {
       if (
         e instanceof ApiError &&
@@ -835,6 +849,7 @@ export function AIDiaryScreen({ route, navigation }: Props) {
         onSafetyNeeded={() => navigation.navigate('Safety')}
         initialEntryDate={initialEntryDate}
         initialNotificationEnabled={initialNotificationEnabled}
+        defaultPrivate={defaultPrivate}
       />
       {selected && (
         <EntryDetailModal
