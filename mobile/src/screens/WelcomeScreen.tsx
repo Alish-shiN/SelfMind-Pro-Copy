@@ -20,17 +20,19 @@ import { colors } from '../theme/colors';
 import { login } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 import type { WelcomeScreenProps } from '../navigation/types';
 
 export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
   const { signIn } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const onSignIn = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      Alert.alert(t('missingFields'), 'Please enter your email and password.');
       return;
     }
     setLoading(true);
@@ -38,8 +40,8 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
       const res = await login(email.trim(), password);
       await signIn(res.access_token);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Could not sign in.';
-      Alert.alert('Sign in failed', msg);
+      const msg = e instanceof ApiError ? e.message : t('signInFailed');
+      Alert.alert(t('signInFailed'), msg);
     } finally {
       setLoading(false);
     }
@@ -60,19 +62,19 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.inner}>
-              <Text style={styles.welcome}>Welcome!</Text>
+              <Text style={styles.welcome}>{t('welcome')}</Text>
 
               <View style={styles.hero}>
                 <Text style={styles.heroEmoji} accessibilityLabel="Illustration">
                   🧠🌸
                 </Text>
-                <Text style={styles.heroCaption}>Mindful self-care</Text>
+                <Text style={styles.heroCaption}>{t('mindfulSelfCare')}</Text>
               </View>
 
               <PillInput
-                label="Email"
+                label={t('email')}
                 icon={<Ionicons name="person-outline" size={20} color={colors.text} />}
-                placeholder="enter your email here"
+                placeholder={t('enterEmail')}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 value={email}
@@ -80,7 +82,7 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
               />
 
               <PillInput
-                label="Password"
+                label={t('password')}
                 icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} />}
                 placeholder="••••••••"
                 secureTextEntry
@@ -88,11 +90,11 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
                 onChangeText={setPassword}
               />
 
-              <Pressable style={styles.forgotWrap} onPress={() => Alert.alert('Forgot password', 'Contact support or reset via web when available.')}>
-                <Text style={styles.forgot}>Forgot Password?</Text>
+              <Pressable style={styles.forgotWrap} onPress={() => Alert.alert(t('forgotPassword'), 'Contact support or reset via web when available.')}>
+                <Text style={styles.forgot}>{t('forgotPassword')}</Text>
               </Pressable>
 
-              <Text style={styles.orConnect}>Or Connect With</Text>
+              <Text style={styles.orConnect}>{t('orConnectWith')}</Text>
               <Pressable
                 style={styles.googleRow}
                 onPress={() => Alert.alert('Google sign-in', 'Wire this to your OAuth flow when ready.')}
@@ -108,7 +110,7 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
                 {loading ? (
                   <ActivityIndicator color={colors.white} />
                 ) : (
-                  <Text style={styles.primaryBtnText}>Sign in</Text>
+                  <Text style={styles.primaryBtnText}>{t('signIn')}</Text>
                 )}
               </Pressable>
 
@@ -122,7 +124,7 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
                 style={styles.primaryBtn}
                 onPress={() => navigation.navigate('Register')}
               >
-                <Text style={styles.primaryBtnText}>Create Account</Text>
+                <Text style={styles.primaryBtnText}>{t('createAccount')}</Text>
               </Pressable>
             </View>
           </ScrollView>

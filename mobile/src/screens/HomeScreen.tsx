@@ -17,12 +17,14 @@ import { getDashboardHome } from '../api/dashboard';
 import { ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { formatMoodLine, moodEmoji } from '../utils/mood';
+import { useTranslation } from '../i18n/I18nContext';
 import type { HomeStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'HomeMain'>;
 
 export function HomeScreen({ navigation }: Props) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function HomeScreen({ navigation }: Props) {
   const advice =
     analysis?.recommendation ||
     analysis?.short_summary ||
-    'Start journaling to receive personalized insights and advice.';
+    t('startJournalingAdvice');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -96,7 +98,7 @@ export function HomeScreen({ navigation }: Props) {
         {data ? (
           <>
             <Text style={styles.greeting}>
-              Hi, <Text style={styles.greetingBold}>{data.user.username}</Text>
+              {t('homeGreetingPrefix')} <Text style={styles.greetingBold}>{data.user.username}</Text>
             </Text>
 
             <Text style={styles.moodLine}>{moodLine}</Text>
@@ -105,7 +107,7 @@ export function HomeScreen({ navigation }: Props) {
               <Text style={styles.emoji}>{emoji}</Text>
             </View>
 
-            <Text style={styles.adviseLabel}>Advise :</Text>
+            <Text style={styles.adviseLabel}>{t('advice')}</Text>
             <Text style={styles.adviseBody}>{advice}</Text>
 
             <Pressable style={styles.safetyCard} onPress={() => navigation.navigate('Safety')}>
@@ -113,8 +115,8 @@ export function HomeScreen({ navigation }: Props) {
                 <Ionicons name="warning-outline" size={22} color="#B91C1C" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.safetyTitle}>Need immediate help?</Text>
-                <Text style={styles.safetyText}>Open crisis resources and safety support.</Text>
+                <Text style={styles.safetyTitle}>{t('needHelp')}</Text>
+                <Text style={styles.safetyText}>{t('crisisResources')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
@@ -123,7 +125,7 @@ export function HomeScreen({ navigation }: Props) {
               style={styles.actionBtn}
               onPress={() => navigation.navigate('AiDiary')}
             >
-              <Text style={styles.actionLabel}>AI-Diary</Text>
+              <Text style={styles.actionLabel}>{t('aiDiary')}</Text>
               <View style={styles.actionIcon}>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
@@ -133,7 +135,7 @@ export function HomeScreen({ navigation }: Props) {
               style={styles.actionBtn}
               onPress={() => navigation.navigate('AiChat')}
             >
-              <Text style={styles.actionLabel}>AI-Chat</Text>
+              <Text style={styles.actionLabel}>{'AI Chat'}</Text>
               <View style={styles.actionIcon}>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
@@ -143,14 +145,14 @@ export function HomeScreen({ navigation }: Props) {
               style={styles.actionBtn}
               onPress={() => navigation.navigate('AiQuiz')}
             >
-              <Text style={styles.actionLabel}>AI-Quiz</Text>
+              <Text style={styles.actionLabel}>{t('aiQuiz')}</Text>
               <View style={styles.actionIcon}>
                 <Ionicons name="arrow-forward" size={18} color={colors.white} />
               </View>
             </Pressable>
 
             <Pressable style={styles.signOut} onPress={() => signOut()}>
-              <Text style={styles.signOutText}>Sign out</Text>
+              <Text style={styles.signOutText}>{t('signOut')}</Text>
             </Pressable>
           </>
         ) : null}

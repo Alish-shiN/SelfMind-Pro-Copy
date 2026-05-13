@@ -20,10 +20,12 @@ import { colors } from '../theme/colors';
 import { login, register } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 import type { RegisterScreenProps } from '../navigation/types';
 
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const { signIn } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +34,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const onSubmit = async () => {
     if (!email.trim() || !username.trim() || password.length < 8) {
       Alert.alert(
-        'Check input',
+        t('checkInput'),
         'Email and username are required. Password must be at least 8 characters.'
       );
       return;
@@ -47,7 +49,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       const tokenRes = await login(email.trim(), password);
       await signIn(tokenRes.access_token);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Registration failed.';
+      const msg = e instanceof ApiError ? e.message : t('registrationFailed');
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
@@ -70,14 +72,14 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
             <View style={styles.inner}>
               <Pressable style={styles.back} onPress={() => navigation.goBack()}>
                 <Ionicons name="chevron-back" size={24} color={colors.text} />
-                <Text style={styles.backText}>Back</Text>
+                <Text style={styles.backText}>{t('back')}</Text>
               </Pressable>
 
-              <Text style={styles.title}>Create account</Text>
-              <Text style={styles.sub}>Join SelfMind Pro in a few steps.</Text>
+              <Text style={styles.title}>{t('createAccountTitle')}</Text>
+              <Text style={styles.sub}>{t('joinSteps')}</Text>
 
               <PillInput
-                label="Email"
+                label={t('email')}
                 icon={<Ionicons name="mail-outline" size={20} color={colors.text} />}
                 placeholder="you@example.com"
                 autoCapitalize="none"
@@ -86,17 +88,17 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
                 onChangeText={setEmail}
               />
               <PillInput
-                label="Username"
+                label={t('username')}
                 icon={<Ionicons name="at-outline" size={20} color={colors.text} />}
-                placeholder="choose a username"
+                placeholder={t('chooseUsername')}
                 autoCapitalize="none"
                 value={username}
                 onChangeText={setUsername}
               />
               <PillInput
-                label="Password"
+                label={t('password')}
                 icon={<Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} />}
-                placeholder="at least 8 characters"
+                placeholder={t('passwordHint')}
                 secureTextEntry
                 value={password}
                 onChangeText={setPassword}
@@ -110,7 +112,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
                 {loading ? (
                   <ActivityIndicator color={colors.white} />
                 ) : (
-                  <Text style={styles.primaryBtnText}>Create Account</Text>
+                  <Text style={styles.primaryBtnText}>{t('createAccount')}</Text>
                 )}
               </Pressable>
             </View>

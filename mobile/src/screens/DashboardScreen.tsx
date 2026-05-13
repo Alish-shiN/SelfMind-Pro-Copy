@@ -12,14 +12,45 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getDashboardHome, DashboardHome } from '../api/dashboard';
+import { getMoodAnalytics, MoodAnalytics } from '../api/analytics';
 import { ApiError } from '../api/client';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 
 const MOOD_EMOJI: Record<string, string> = {
   joy: '😊', calm: '😌', stress: '😤', anxiety: '😰',
   sadness: '😢', anger: '😠', neutral: '😐',
 };
+
+const PERIOD_OPTIONS = ['7d', '30d', '90d'] as const;
+const GRANULARITY_OPTIONS = ['day', 'week', 'month'] as const;
+
+function moodColor(score: number | null) {
+  if (score == null) return '#E5E7EB';
+  if (score >= 7) return '#34A853';
+  if (score >= 5) return '#FBBC04';
+  return '#EE715F';
+}
+
+function emotionColor(emotion: string | null) {
+  switch ((emotion || '').toLowerCase()) {
+    case 'joy':
+      return '#FDE68A';
+    case 'calm':
+      return '#BFDBFE';
+    case 'stress':
+      return '#FDBA74';
+    case 'anxiety':
+      return '#DDD6FE';
+    case 'sadness':
+      return '#A7F3D0';
+    case 'anger':
+      return '#FCA5A5';
+    default:
+      return '#E5E7EB';
+  }
+}
 
 function StatCard({ label, value, icon }: { label: string; value: string | number; icon: string }) {
   return (
@@ -41,12 +72,60 @@ function MoodBar({ score }: { score: number }) {
   );
 }
 
+function MoodTrendChart({ points }: { points: MoodAnalytics['mood_history'] }) {
+  const visible = points.slice(-12);
+  const maxMood = 10;
+  return (
+    <View style={styles.trendChart}>
+      {visible.map((point) => {
+        const height = point.average_mood == null ? 8 : Math.max(8, (point.average_mood / maxMood) * 92);
+        return (
+          <View key={point.period_start} style={styles.trendItem}>
+            <View style={styles.trendBarTrack}>
+              <View
+                style={[
+                  styles.trendBarFill,
+                  { height: `${height}%` as any, backgroundColor: moodColor(point.average_mood) },
+                ]}
+              />
+            </View>
+            <Text style={styles.trendLabel} numberOfLines={1}>{point.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function MiniHeatmap({ days }: { days: MoodAnalytics['emotion_heatmap'] }) {
+  return (
+    <View style={styles.heatmapGrid}>
+      {days.slice(-35).map((day) => (
+        <View
+          key={day.date}
+          style={[
+            styles.heatmapCell,
+            {
+              backgroundColor: emotionColor(day.dominant_emotion),
+              opacity: day.entries_count > 0 ? Math.max(0.35, day.intensity) : 0.25,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export function DashboardScreen({ navigation }: { navigation: any }) {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardHome | null>(null);
+  const [analytics, setAnalytics] = useState<MoodAnalytics | null>(null);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<typeof PERIOD_OPTIONS[number]>('30d');
+  const [analyticsGranularity, setAnalyticsGranularity] = useState<typeof GRANULARITY_OPTIONS[number]>('day');
 
   const [monthCursor, setMonthCursor] = useState(() => {
     const d = new Date();
@@ -78,8 +157,12 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const d = await getDashboardHome();
+      const [d, moodAnalytics] = await Promise.all([
+        getDashboardHome(),
+        getMoodAnalytics(analyticsPeriod, analyticsGranularity),
+      ]);
       setData(d);
+      setAnalytics(moodAnalytics);
     } catch (e) {
       if (
         e instanceof ApiError &&
@@ -94,7 +177,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [signOut]);
+  }, [analyticsGranularity, analyticsPeriod, signOut]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -162,11 +245,11 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Mood card */}
         <View style={styles.moodCard}>
           <View style={styles.moodLeft}>
-            <Text style={styles.moodCardLabel}>Current Mood</Text>
+            <Text style={styles.moodCardLabel}>{t('currentMood')}</Text>
             <Text style={styles.moodCardEmotion}>
               {analysis
                 ? analysis.emotion_label.charAt(0).toUpperCase() + analysis.emotion_label.slice(1)
-                : 'No data yet'}
+                : t('noDataYet')}
             </Text>
             {analysis && (
               <View style={styles.sentimentPill}>
@@ -317,10 +400,160 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
           <StatCard label="Best" value={`${stats?.longest_streak ?? 0}d`} icon="🏆" />
         </View>
 
+        <View style={styles.section}>
+          <View style={styles.archiveCard}>
+            <View style={styles.archiveIcon}>
+              <Ionicons name="search-outline" size={20} color={colors.coral} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.archiveTitle}>{t('searchHistory')}</Text>
+              <Text style={styles.archiveSubtitle}>{t('searchHistorySubtitle')}</Text>
+            </View>
+            <Pressable
+              style={styles.archiveButton}
+              onPress={() => navigation.navigate('ArchiveSearch')}
+            >
+              <Text style={styles.archiveButtonText}>{t('openArchive')}</Text>
+            </Pressable>
+          </View>
+        </View>
+
+
+        {data?.latest_quiz_action_plan ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Latest Quiz Action Plan</Text>
+              <Text style={styles.sectionHint}>{data.latest_quiz_action_plan.quiz_title}</Text>
+            </View>
+            <View style={styles.quizPlanCard}>
+              <View style={styles.quizPlanTop}>
+                <Text style={styles.quizPlanTitle}>{data.latest_quiz_action_plan.quiz_title}</Text>
+                <Text style={styles.quizPlanScore}>{Math.round(data.latest_quiz_action_plan.score)}</Text>
+              </View>
+              <Text style={styles.quizPlanMeta}>
+                {new Date(data.latest_quiz_action_plan.created_at).toLocaleDateString()} • {data.latest_quiz_action_plan.severity_level}
+              </Text>
+              <Text style={styles.quizPlanSummary} numberOfLines={3}>
+                {data.latest_quiz_action_plan.summary}
+              </Text>
+              {data.latest_quiz_action_plan.next_actions.slice(0, 3).map((action) => (
+                <View key={action} style={styles.quizPlanActionRow}>
+                  <Ionicons name="checkmark-circle-outline" size={15} color={colors.coral} />
+                  <Text style={styles.quizPlanAction}>{action}</Text>
+                </View>
+              ))}
+              <Pressable
+                style={styles.quizPlanButton}
+                onPress={() => navigation.navigate('Home', { screen: 'AiQuiz' })}
+              >
+                <Text style={styles.quizPlanButtonText}>View result or retake quiz</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+
+        {/* Mood analytics */}
+        {analytics ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{t('moodAnalytics')}</Text>
+              <Text style={styles.sectionHint}>{analytics.start_date} → {analytics.end_date}</Text>
+            </View>
+
+            <View style={styles.filterRow}>
+              {PERIOD_OPTIONS.map((period) => (
+                <Pressable
+                  key={period}
+                  style={[styles.filterChip, analyticsPeriod === period && styles.filterChipOn]}
+                  onPress={() => setAnalyticsPeriod(period)}
+                >
+                  <Text style={[styles.filterChipText, analyticsPeriod === period && styles.filterChipTextOn]}>
+                    {period}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.filterRow}>
+              {GRANULARITY_OPTIONS.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[styles.filterChip, analyticsGranularity === item && styles.filterChipOn]}
+                  onPress={() => setAnalyticsGranularity(item)}
+                >
+                  <Text style={[styles.filterChipText, analyticsGranularity === item && styles.filterChipTextOn]}>
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>Mood over time</Text>
+              <MoodTrendChart points={analytics.mood_history} />
+            </View>
+
+            <View style={styles.analyticsMiniGrid}>
+              <View style={styles.analyticsMiniCard}>
+                <Text style={styles.analyticsMiniValue}>{analytics.journaling_frequency.entries_per_week}</Text>
+                <Text style={styles.analyticsMiniLabel}>entries / week</Text>
+              </View>
+              <View style={styles.analyticsMiniCard}>
+                <Text style={styles.analyticsMiniValue}>{analytics.journaling_frequency.consistency_percentage}%</Text>
+                <Text style={styles.analyticsMiniLabel}>consistency</Text>
+              </View>
+              <View style={styles.analyticsMiniCard}>
+                <Text style={styles.analyticsMiniValue}>{analytics.streak.longest_streak}d</Text>
+                <Text style={styles.analyticsMiniLabel}>best streak</Text>
+              </View>
+            </View>
+
+            {analytics.top_emotions.length > 0 ? (
+              <View style={styles.analyticsCard}>
+                <Text style={styles.analyticsTitle}>Top emotions</Text>
+                {analytics.top_emotions.map((emotion) => (
+                  <View key={emotion.emotion_label} style={styles.emotionRow}>
+                    <Text style={styles.emotionName}>{MOOD_EMOJI[emotion.emotion_label] ?? '✨'} {emotion.emotion_label}</Text>
+                    <View style={styles.emotionBarTrack}>
+                      <View style={[styles.emotionBarFill, { width: `${emotion.percentage}%` as any }]} />
+                    </View>
+                    <Text style={styles.emotionPct}>{emotion.percentage}%</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>Emotion heatmap</Text>
+              <MiniHeatmap days={analytics.emotion_heatmap} />
+              <Text style={styles.analyticsCaption}>Recent calendar intensity by journaling activity and dominant emotion.</Text>
+            </View>
+
+            <View style={styles.analyticsCard}>
+              <Text style={styles.analyticsTitle}>Interpretation layer</Text>
+              {analytics.insights.slice(0, 3).map((insight) => (
+                <View key={insight.title} style={styles.insightBullet}>
+                  <Ionicons name="sparkles-outline" size={15} color={colors.coral} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.insightBulletTitle}>{insight.title}</Text>
+                    <Text style={styles.insightBulletText}>{insight.description}</Text>
+                  </View>
+                </View>
+              ))}
+              {analytics.correlations.map((correlation) => (
+                <Text key={correlation.metric} style={styles.correlationText}>
+                  {correlation.metric.replace(/_/g, ' ')}: {correlation.strength}
+                  {correlation.coefficient != null ? ` (${correlation.coefficient})` : ''}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {/* Latest analysis */}
         {analysis && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Latest Insight</Text>
+            <Text style={styles.sectionTitle}>{t('latestInsight')}</Text>
             <View style={styles.insightCard}>
               <Text style={styles.insightSummary}>{analysis.short_summary}</Text>
               <View style={styles.insightDivider} />
@@ -329,7 +562,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                 <Text style={styles.insightRec}>{analysis.recommendation}</Text>
               </View>
               <View style={styles.confidenceRow}>
-                <Text style={styles.confidenceLabel}>Confidence</Text>
+                <Text style={styles.confidenceLabel}>{t('confidence')}</Text>
                 <View style={styles.confidenceBarWrap}>
                   <View
                     style={[
@@ -349,7 +582,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {/* Recent entries */}
         {(data?.recent_entries?.length ?? 0) > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Journal Entries</Text>
+            <Text style={styles.sectionTitle}>{t('recentJournalEntries')}</Text>
             {data!.recent_entries.map((entry) => (
               <View key={entry.id} style={styles.entryCard}>
                 <View style={styles.entryLeft}>
@@ -372,9 +605,9 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
         {!analysis && !loading && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyEmoji}>📖</Text>
-            <Text style={styles.emptyTitle}>Start your journey</Text>
+            <Text style={styles.emptyTitle}>{t('startJourney')}</Text>
             <Text style={styles.emptySub}>
-              Write your first journal entry to unlock mood insights and personalized advice.
+              {t('startJourneySub')}
             </Text>
           </View>
         )}
@@ -584,6 +817,116 @@ const styles = StyleSheet.create({
   },
   moodBarFill: { height: 6, borderRadius: 3 },
   entryMoodScore: { fontSize: 12, fontWeight: '600', color: colors.text },
+
+
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  sectionHint: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterChipOn: { backgroundColor: '#FFF0EE', borderColor: colors.coral },
+  filterChipText: { color: colors.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'capitalize' },
+  filterChipTextOn: { color: colors.coral },
+
+
+  archiveCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  archiveIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF3F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  archiveTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
+  archiveSubtitle: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginTop: 2 },
+  archiveButton: { backgroundColor: colors.coral, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  archiveButtonText: { color: '#fff', fontWeight: '900', fontSize: 11 },
+
+  quizPlanCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2FF',
+    gap: 8,
+  },
+  quizPlanTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  quizPlanTitle: { fontSize: 15, fontWeight: '900', color: colors.text },
+  quizPlanScore: { fontSize: 22, fontWeight: '900', color: colors.coral },
+  quizPlanMeta: { fontSize: 11, color: colors.textMuted, fontWeight: '800', textTransform: 'capitalize' },
+  quizPlanSummary: { fontSize: 13, color: colors.text, lineHeight: 18 },
+  quizPlanActionRow: { flexDirection: 'row', gap: 7, alignItems: 'flex-start' },
+  quizPlanAction: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 17, fontWeight: '700' },
+  quizPlanButton: { backgroundColor: colors.coral, borderRadius: 14, paddingVertical: 11, alignItems: 'center', marginTop: 4 },
+  quizPlanButtonText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+
+  analyticsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 14,
+    marginTop: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  analyticsTitle: { fontSize: 14, fontWeight: '800', color: colors.text, marginBottom: 10 },
+  trendChart: { height: 140, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  trendItem: { flex: 1, alignItems: 'center', gap: 5 },
+  trendBarTrack: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  trendBarFill: { width: '100%', borderRadius: 10 },
+  trendLabel: { fontSize: 9, color: colors.textMuted, maxWidth: 44 },
+  analyticsMiniGrid: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  analyticsMiniCard: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+  },
+  analyticsMiniValue: { fontSize: 16, fontWeight: '900', color: colors.text },
+  analyticsMiniLabel: { fontSize: 10, color: colors.textMuted, textAlign: 'center', marginTop: 2 },
+  emotionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  emotionName: { width: 84, fontSize: 12, color: colors.text, fontWeight: '700', textTransform: 'capitalize' },
+  emotionBarTrack: { flex: 1, height: 7, borderRadius: 4, overflow: 'hidden', backgroundColor: '#F3F4F6' },
+  emotionBarFill: { height: 7, borderRadius: 4, backgroundColor: colors.coral },
+  emotionPct: { width: 48, fontSize: 11, color: colors.textMuted, textAlign: 'right', fontWeight: '700' },
+  heatmapGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  heatmapCell: { width: 16, height: 16, borderRadius: 5 },
+  analyticsCaption: { color: colors.textMuted, fontSize: 11, marginTop: 10, lineHeight: 15 },
+  insightBullet: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginBottom: 10 },
+  insightBulletTitle: { fontSize: 12, color: colors.text, fontWeight: '800' },
+  insightBulletText: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginTop: 2 },
+  correlationText: { color: colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4, textTransform: 'capitalize' },
 
   emptyCard: {
     backgroundColor: colors.white,
