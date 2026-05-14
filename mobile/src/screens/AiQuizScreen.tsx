@@ -34,6 +34,39 @@ type Props = NativeStackScreenProps<HomeStackParamList, "AiQuiz">;
 type ScreenMode = "landing" | "taking" | "result";
 type AnswersByIndex = Record<number, { answer_text: string; score: number }>;
 
+
+const QUIZ_TYPE_ALIASES: Record<string, string> = {
+  stress_reflection: "stress",
+};
+
+function normalizeQuizType(value?: string | null) {
+  const key = (value || "stress").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return QUIZ_TYPE_ALIASES[key] ?? key;
+}
+
+function quizTitleKey(value?: string | null) {
+  return `quizType_${normalizeQuizType(value)}_title`;
+}
+
+function quizDescriptionKey(value?: string | null) {
+  return `quizType_${normalizeQuizType(value)}_description`;
+}
+
+function translatedQuizTitle(value: string | null | undefined, t: (key: string) => string) {
+  return t(quizTitleKey(value));
+}
+
+function translatedQuizDescription(value: string | null | undefined, t: (key: string) => string) {
+  return t(quizDescriptionKey(value));
+}
+
+function quizStatusLabel(status: string, t: (key: string) => string) {
+  if (status === "not_started") return t("notStarted");
+  if (status === "completed_recently") return t("completedRecently");
+  if (status === "completed") return t("completed");
+  return titleCase(status);
+}
+
 function titleCase(value?: string | null) {
   if (!value) return "—";
   return value.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
@@ -67,12 +100,14 @@ export function AiQuizScreen({ navigation }: Props) {
 
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
   const canSubmit =
-    questions.length > 0 && answeredCount === questions.length && !submitting;
+    questions.length > 0 &&
+    questions.every((question) => answers[question.question_index]) &&
+    !submitting;
 
   const handleAuthError = useCallback(
     async (e: unknown, fallback: string) => {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return true;
       }
       setError(e instanceof ApiError ? e.message : fallback);
@@ -135,8 +170,12 @@ export function AiQuizScreen({ navigation }: Props) {
     setSubmitting(true);
     setError(null);
     try {
+      if (!questions.every((q) => answers[q.question_index])) {
+        setError(t("couldNotSubmitQuiz"));
+        return;
+      }
       const payloadAnswers = questions.map((q) => {
-        const answer = answers[q.question_index];
+        const answer = answers[q.question_index]!;
         return {
           question_index: q.question_index,
           question_text: q.question_text,
@@ -190,7 +229,7 @@ export function AiQuizScreen({ navigation }: Props) {
     try {
       await createGoal({
         title: result.action_plan.suggested_goal,
-        description: `${t("suggestedFromQuiz")} ${titleCase(result.quiz_type)} ${t("quiz")} ${t("personalizedActionPlan")}.`,
+        description: `${t("suggestedFromQuiz")} ${translatedQuizTitle(result.quiz_type, t)} ${t("personalizedActionPlan")}.`,
         goal_type: "custom",
         target_count: 3,
         period: "weekly",
@@ -275,7 +314,7 @@ export function AiQuizScreen({ navigation }: Props) {
                 <Text style={styles.heroText}>{t("chooseQuizSub")}</Text>
                 {latestHistory ? (
                   <Text style={styles.latestText}>
-                    {t("latest")}: {latestHistory.quiz_title} •{" "}
+                    {t("latest")}: {translatedQuizTitle(latestHistory.quiz_type, t)} •{" "}
                     {Math.round(latestHistory.score)} •{" "}
                     {titleCase(latestHistory.severity_level)}
                   </Text>
@@ -311,9 +350,9 @@ export function AiQuizScreen({ navigation }: Props) {
                     <View style={styles.typeTop}>
                       <Text style={styles.typeEmoji}>{item.emoji || "✨"}</Text>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.typeTitle}>{item.title}</Text>
+                        <Text style={styles.typeTitle}>{translatedQuizTitle(item.key, t)}</Text>
                         <Text style={styles.typeDescription}>
-                          {item.description}
+                          {translatedQuizDescription(item.key, t)}
                         </Text>
                       </View>
                       <Text
@@ -322,7 +361,7 @@ export function AiQuizScreen({ navigation }: Props) {
                           selected && styles.statusPillOn,
                         ]}
                       >
-                        {item.status.replace(/_/g, " ")}
+                        {quizStatusLabel(item.status, t)}
                       </Text>
                     </View>
                     <View style={styles.typeFooter}>
@@ -359,7 +398,7 @@ export function AiQuizScreen({ navigation }: Props) {
                     onPress={() => viewResult(item.result_id)}
                   >
                     <View style={styles.historyTop}>
-                      <Text style={styles.historyTitle}>{item.quiz_title}</Text>
+                      <Text style={styles.historyTitle}>{translatedQuizTitle(item.quiz_type, t)}</Text>
                       <Text style={styles.historyScore}>
                         {Math.round(item.score)}
                       </Text>
@@ -402,7 +441,7 @@ export function AiQuizScreen({ navigation }: Props) {
           <View style={styles.quizWrap}>
             <View style={styles.quizHeaderCard}>
               <Text style={styles.heroTitle}>
-                {titleCase(session.quiz_type)} {t("quiz")}
+                {translatedQuizTitle(session.quiz_type, t)}
               </Text>
               <Text style={styles.heroText}>{t("answerHonestly")}</Text>
             </View>
@@ -460,7 +499,7 @@ export function AiQuizScreen({ navigation }: Props) {
             <View style={styles.stack}>
               <View style={styles.resultCard}>
                 <Text style={styles.resultTitle}>
-                  {titleCase(result.quiz_type)} {t("quizResult")}
+                  {translatedQuizTitle(result.quiz_type, t)} {t("quizResult")}
                 </Text>
                 <Text style={styles.resultScore}>
                   {Math.round(result.overall_score)} / 100

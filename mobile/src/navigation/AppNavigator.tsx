@@ -23,6 +23,9 @@ import { SafetyScreen } from '../screens/SafetyScreen';
 import { AdminPanelScreen } from '../screens/AdminPanelScreen';
 import { PersonalizationOnboardingScreen } from '../screens/PersonalizationOnboardingScreen';
 import { ArchiveSearchScreen } from '../screens/ArchiveSearchScreen';
+import { ProfilePersonalizationScreen } from '../screens/ProfilePersonalizationScreen';
+import { ProfilePrivacyCenterScreen } from '../screens/ProfilePrivacyCenterScreen';
+import { ProfileRemindersScreen } from '../screens/ProfileRemindersScreen';
 import { getCurrentUser, getUserPreferences, UserPreferences } from '../api/user';
 import { colors } from '../theme/colors';
 
@@ -229,6 +232,9 @@ export function AppNavigator() {
             <RootStack.Screen name="MainTabs" component={MainTabsNavigator} />
             <RootStack.Screen name="Profile" component={ProfileScreen} />
             <RootStack.Screen name="ArchiveSearch" component={ArchiveSearchScreen} />
+            <RootStack.Screen name="ProfilePersonalization" component={ProfilePersonalizationScreen} />
+            <RootStack.Screen name="ProfilePrivacyCenter" component={ProfilePrivacyCenterScreen} />
+            <RootStack.Screen name="ProfileReminders" component={ProfileRemindersScreen} />
           </>
         ) : !onboardingDone ? (
           <RootStack.Screen name="Onboarding">

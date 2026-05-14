@@ -106,7 +106,7 @@ class CommunityService:
 
     def get_post_detail(self, post_id: int):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
@@ -114,7 +114,7 @@ class CommunityService:
         comments = [
             self._serialize_comment(comment)
             for comment in post.comments
-            if comment.moderation_status == "visible"
+            if comment.moderation_status != "hidden"
         ]
 
         return {
@@ -137,7 +137,7 @@ class CommunityService:
         self, current_user: User, post_id: int, payload: CommunityCommentCreate
     ):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
@@ -158,7 +158,7 @@ class CommunityService:
 
     def get_comments(self, post_id: int):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
@@ -219,7 +219,7 @@ class CommunityService:
         self, current_user: User, post_id: int, payload: CommunityReactionCreate
     ):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
@@ -235,7 +235,7 @@ class CommunityService:
         self, current_user: User, comment_id: int, payload: CommunityReactionCreate
     ):
         comment = self.repo.get_comment_by_id(comment_id)
-        if not comment or comment.moderation_status != "visible":
+        if not comment or comment.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
             )
@@ -331,7 +331,7 @@ class CommunityService:
                 [
                     comment
                     for comment in comments
-                    if comment.moderation_status == "visible"
+                    if comment.moderation_status != "hidden"
                 ]
             ),
             "reactions": self._reaction_counts("post", [post.id]).get(post.id),
