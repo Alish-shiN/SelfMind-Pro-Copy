@@ -67,7 +67,9 @@ export function AiQuizScreen({ navigation }: Props) {
 
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
   const canSubmit =
-    questions.length > 0 && answeredCount === questions.length && !submitting;
+    questions.length > 0 &&
+    questions.every((question) => answers[question.question_index]) &&
+    !submitting;
 
   const handleAuthError = useCallback(
     async (e: unknown, fallback: string) => {
@@ -135,8 +137,12 @@ export function AiQuizScreen({ navigation }: Props) {
     setSubmitting(true);
     setError(null);
     try {
+      if (!questions.every((q) => answers[q.question_index])) {
+        setError(t("couldNotSubmitQuiz"));
+        return;
+      }
       const payloadAnswers = questions.map((q) => {
-        const answer = answers[q.question_index];
+        const answer = answers[q.question_index]!;
         return {
           question_index: q.question_index,
           question_text: q.question_text,
