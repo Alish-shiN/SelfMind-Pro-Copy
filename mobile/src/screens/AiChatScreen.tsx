@@ -67,7 +67,7 @@ export function AiChatScreen({ navigation }: Props) {
       );
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return;
       }
       setError(e instanceof ApiError ? e.message : t("couldNotLoadChat"));
@@ -110,7 +110,7 @@ export function AiChatScreen({ navigation }: Props) {
       ]);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return;
       }
       setError(e instanceof ApiError ? e.message : t("couldNotSendMessage"));

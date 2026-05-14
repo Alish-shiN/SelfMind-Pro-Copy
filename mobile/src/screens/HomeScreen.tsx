@@ -40,7 +40,7 @@ export function HomeScreen({ navigation }: Props) {
       setData(d);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         setError(null);
         return;
       }

@@ -53,5 +53,6 @@ class DashboardHomeResponse(BaseModel):
     stats: DashboardStats
     recent_entries: list[DashboardRecentEntry]
     latest_analysis: DashboardLatestAnalysis | None = None
+    latest_quiz_action_plan: DashboardQuizActionPlan | None = None
     # Dates (YYYY-MM-DD) where the user has at least one journal entry.
     active_dates: list[DateType] = []

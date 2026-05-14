@@ -159,7 +159,7 @@ export function AdminPanelScreen() {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         if (e.status === 401) {
-          await signOut();
+          await signOut("sessionExpired");
           return;
         }
         setError(e.message || 'Insufficient permissions.');
