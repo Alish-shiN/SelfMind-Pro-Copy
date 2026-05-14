@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy import desc, func, or_
+from sqlalchemy import case, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.roles import ROLE_ADMIN, USER_ROLES
@@ -126,14 +126,26 @@ class AdminService:
         )
         if status_filter:
             query = query.filter(CommunityPost.moderation_status == status_filter)
-        posts = query.order_by(CommunityPost.created_at.desc()).all()
+        status_order = case(
+            (CommunityPost.moderation_status == "pending_review", 0),
+            (CommunityPost.moderation_status == "visible", 1),
+            (CommunityPost.moderation_status == "hidden", 2),
+            else_=3,
+        )
+        posts = query.order_by(status_order, CommunityPost.updated_at.desc()).all()
         return [self._serialize_moderation_post(post) for post in posts]
 
     def list_moderation_comments(self, status_filter: str | None = None) -> list[dict]:
         query = self.db.query(CommunityComment).options(joinedload(CommunityComment.user))
         if status_filter:
             query = query.filter(CommunityComment.moderation_status == status_filter)
-        comments = query.order_by(CommunityComment.created_at.desc()).all()
+        status_order = case(
+            (CommunityComment.moderation_status == "pending_review", 0),
+            (CommunityComment.moderation_status == "visible", 1),
+            (CommunityComment.moderation_status == "hidden", 2),
+            else_=3,
+        )
+        comments = query.order_by(status_order, CommunityComment.updated_at.desc()).all()
         return [self._serialize_moderation_comment(comment) for comment in comments]
 
     def moderate_post(self, post_id: int, payload: AdminModerationUpdate, moderator: User) -> dict:

@@ -47,9 +47,37 @@ const sectionLabels: Array<{ key: AdminSection; label: string; icon: keyof typeo
   { key: 'content', label: 'Content', icon: 'create-outline' },
 ];
 
+const MODERATION_STATUS_ORDER: Record<string, number> = {
+  pending_review: 0,
+  visible: 1,
+  hidden: 2,
+};
+
+function moderationStatusLabel(status: string) {
+  return status === 'pending_review'
+    ? 'pending review'
+    : status.replace(/_/g, ' ');
+}
+
+function sortModerationItems<T extends { moderation_status: string; updated_at: string }>(items: T[]) {
+  return [...items].sort((a, b) => {
+    const aOrder = MODERATION_STATUS_ORDER[a.moderation_status] ?? 99;
+    const bOrder = MODERATION_STATUS_ORDER[b.moderation_status] ?? 99;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
+}
+
 function shortDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+
+function moderationStatusStyle(status: string) {
+  if (status === 'pending_review') return styles.statusPending;
+  if (status === 'hidden') return styles.statusHidden;
+  return styles.statusActive;
 }
 
 function StatTile({ label, value, icon, tone = 'neutral' }: {
@@ -159,7 +187,7 @@ export function AdminPanelScreen() {
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         if (e.status === 401) {
-          await signOut();
+          await signOut("sessionExpired");
           return;
         }
         setError(e.message || 'Insufficient permissions.');
@@ -182,8 +210,8 @@ export function AdminPanelScreen() {
   };
 
   const visibleUsers = useMemo(() => users.slice(0, 8), [users]);
-  const visiblePosts = useMemo(() => posts.slice(0, 5), [posts]);
-  const visibleComments = useMemo(() => comments.slice(0, 5), [comments]);
+  const visiblePosts = useMemo(() => sortModerationItems(posts).slice(0, 20), [posts]);
+  const visibleComments = useMemo(() => sortModerationItems(comments).slice(0, 20), [comments]);
   const visibleRisks = useMemo(() => risks.slice(0, 8), [risks]);
   const visibleContent = useMemo(() => content.slice(0, 6), [content]);
 
@@ -229,19 +257,25 @@ export function AdminPanelScreen() {
     ]);
   };
 
-  const handleModeratePost = (post: AdminCommunityPostModeration) => {
-    const nextStatus = post.moderation_status === 'hidden' ? 'visible' : 'hidden';
+  const handleModeratePost = (
+    post: AdminCommunityPostModeration,
+    nextStatus?: 'visible' | 'hidden'
+  ) => {
+    const status = nextStatus ?? (post.moderation_status === 'hidden' ? 'visible' : 'hidden');
     runAction(
-      () => moderatePost(post.id, nextStatus, nextStatus === 'hidden' ? 'Hidden from mobile admin panel' : null),
-      `Post marked as ${nextStatus}.`
+      () => moderatePost(post.id, status, status === 'hidden' ? 'Hidden from mobile admin panel' : null),
+      `Post marked as ${status}.`
     );
   };
 
-  const handleModerateComment = (comment: AdminCommunityCommentModeration) => {
-    const nextStatus = comment.moderation_status === 'hidden' ? 'visible' : 'hidden';
+  const handleModerateComment = (
+    comment: AdminCommunityCommentModeration,
+    nextStatus?: 'visible' | 'hidden'
+  ) => {
+    const status = nextStatus ?? (comment.moderation_status === 'hidden' ? 'visible' : 'hidden');
     runAction(
-      () => moderateComment(comment.id, nextStatus, nextStatus === 'hidden' ? 'Hidden from mobile admin panel' : null),
-      `Comment marked as ${nextStatus}.`
+      () => moderateComment(comment.id, status, status === 'hidden' ? 'Hidden from mobile admin panel' : null),
+      `Comment marked as ${status}.`
     );
   };
 
@@ -363,10 +397,25 @@ export function AdminPanelScreen() {
           </View>
           <Text style={styles.contentText} numberOfLines={3}>{post.content}</Text>
           <View style={styles.rowBetween}>
-            <Text style={styles.itemMeta}>Status: {post.moderation_status}</Text>
-            <Pressable style={styles.smallButton} onPress={() => handleModeratePost(post)} disabled={actionLoading}>
-              <Text style={styles.smallButtonText}>{post.moderation_status === 'hidden' ? 'Show' : 'Hide'}</Text>
-            </Pressable>
+            <View style={[styles.statusPill, moderationStatusStyle(post.moderation_status)]}>
+              <Text style={styles.statusText}>{moderationStatusLabel(post.moderation_status)}</Text>
+            </View>
+            <View style={styles.actionRowCompact}>
+              {post.moderation_status === 'pending_review' ? (
+                <Pressable style={styles.smallButtonGhost} onPress={() => handleModeratePost(post, 'hidden')} disabled={actionLoading}>
+                  <Text style={styles.smallButtonGhostText}>Hide</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.smallButton}
+                onPress={() => handleModeratePost(post, post.moderation_status === 'pending_review' ? 'visible' : undefined)}
+                disabled={actionLoading}
+              >
+                <Text style={styles.smallButtonText}>
+                  {post.moderation_status === 'pending_review' ? 'Approve' : post.moderation_status === 'hidden' ? 'Show' : 'Hide'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       ))}
@@ -381,10 +430,25 @@ export function AdminPanelScreen() {
           </View>
           <Text style={styles.contentText} numberOfLines={3}>{comment.content}</Text>
           <View style={styles.rowBetween}>
-            <Text style={styles.itemMeta}>Status: {comment.moderation_status}</Text>
-            <Pressable style={styles.smallButton} onPress={() => handleModerateComment(comment)} disabled={actionLoading}>
-              <Text style={styles.smallButtonText}>{comment.moderation_status === 'hidden' ? 'Show' : 'Hide'}</Text>
-            </Pressable>
+            <View style={[styles.statusPill, moderationStatusStyle(comment.moderation_status)]}>
+              <Text style={styles.statusText}>{moderationStatusLabel(comment.moderation_status)}</Text>
+            </View>
+            <View style={styles.actionRowCompact}>
+              {comment.moderation_status === 'pending_review' ? (
+                <Pressable style={styles.smallButtonGhost} onPress={() => handleModerateComment(comment, 'hidden')} disabled={actionLoading}>
+                  <Text style={styles.smallButtonGhostText}>Hide</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.smallButton}
+                onPress={() => handleModerateComment(comment, comment.moderation_status === 'pending_review' ? 'visible' : undefined)}
+                disabled={actionLoading}
+              >
+                <Text style={styles.smallButtonText}>
+                  {comment.moderation_status === 'pending_review' ? 'Approve' : comment.moderation_status === 'hidden' ? 'Show' : 'Hide'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       ))}
@@ -571,12 +635,14 @@ const styles = StyleSheet.create({
   countRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   countText: { backgroundColor: '#F5F7FA', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, color: colors.textMuted, fontSize: 11, fontWeight: '900' },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  actionRowCompact: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   smallButton: { backgroundColor: colors.coral, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   smallButtonText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   smallButtonGhost: { backgroundColor: '#FFF3F1', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   smallButtonGhostText: { color: colors.coral, fontWeight: '900', fontSize: 12 },
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   statusActive: { backgroundColor: '#DCFCE7' },
+  statusPending: { backgroundColor: '#FEF3C7' },
   statusHidden: { backgroundColor: '#FEE2E2' },
   statusText: { fontSize: 11, fontWeight: '900', color: colors.text },
   secondaryButton: {
