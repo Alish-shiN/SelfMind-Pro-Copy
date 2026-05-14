@@ -13,6 +13,7 @@ class AIQuizQuestion(BaseModel):
 
 class AIQuizGenerateRequest(BaseModel):
     quiz_type: str = "stress"
+    language: str = "en"
 
 
 class AIQuizSessionResponse(BaseModel):

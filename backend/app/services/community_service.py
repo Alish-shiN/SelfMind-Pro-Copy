@@ -87,7 +87,7 @@ class CommunityService:
             current_user, "community_post", post.id, payload.content
         )
         post = self._auto_review_if_needed(post, payload.content, current_user.id)
-        return self._serialize_post(post)
+        return self._serialize_post(post, current_user)
 
     def get_feed(
         self,
@@ -95,6 +95,7 @@ class CommunityService:
         offset: int = 0,
         support_space: str | None = None,
         topic_tag: str | None = None,
+        current_user: User | None = None,
     ):
         posts = self.repo.get_posts(
             limit=limit,
@@ -102,23 +103,23 @@ class CommunityService:
             support_space=support_space,
             topic_tag=topic_tag,
         )
-        return [self._serialize_post(post) for post in posts]
+        return [self._serialize_post(post, current_user) for post in posts]
 
-    def get_post_detail(self, post_id: int):
+    def get_post_detail(self, post_id: int, current_user: User | None = None):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
 
         comments = [
-            self._serialize_comment(comment)
+            self._serialize_comment(comment, current_user)
             for comment in post.comments
-            if comment.moderation_status == "visible"
+            if comment.moderation_status != "hidden"
         ]
 
         return {
-            **self._serialize_post(post),
+            **self._serialize_post(post, current_user),
             "comments": comments,
         }
 
@@ -137,7 +138,7 @@ class CommunityService:
         self, current_user: User, post_id: int, payload: CommunityCommentCreate
     ):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
@@ -154,17 +155,17 @@ class CommunityService:
         )
         comment = self._auto_review_if_needed(comment, payload.content, current_user.id)
         comment = self.repo.get_comment_by_id(comment.id)
-        return self._serialize_comment(comment)
+        return self._serialize_comment(comment, current_user)
 
-    def get_comments(self, post_id: int):
+    def get_comments(self, post_id: int, current_user: User | None = None):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
 
         comments = self.repo.get_comments_by_post_id(post_id)
-        return [self._serialize_comment(comment) for comment in comments]
+        return [self._serialize_comment(comment, current_user) for comment in comments]
 
     def delete_comment(self, current_user: User, comment_id: int):
         comment = self.repo.get_comment_by_id(comment_id)
@@ -219,7 +220,7 @@ class CommunityService:
         self, current_user: User, post_id: int, payload: CommunityReactionCreate
     ):
         post = self.repo.get_post_by_id(post_id)
-        if not post or post.moderation_status != "visible":
+        if not post or post.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Post not found"
             )
@@ -229,13 +230,14 @@ class CommunityService:
         return {
             "active": active,
             "reactions": self._reaction_counts("post", [post_id]).get(post_id),
+            "my_reactions": self._user_reactions(current_user, "post", [post_id]).get(post_id, []),
         }
 
     def react_to_comment(
         self, current_user: User, comment_id: int, payload: CommunityReactionCreate
     ):
         comment = self.repo.get_comment_by_id(comment_id)
-        if not comment or comment.moderation_status != "visible":
+        if not comment or comment.moderation_status == "hidden":
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
             )
@@ -245,6 +247,7 @@ class CommunityService:
         return {
             "active": active,
             "reactions": self._reaction_counts("comment", [comment_id]).get(comment_id),
+            "my_reactions": self._user_reactions(current_user, "comment", [comment_id]).get(comment_id, []),
         }
 
     def get_moderation_queue(self, current_user: User, limit: int = 50):
@@ -267,7 +270,7 @@ class CommunityService:
             post, payload.moderation_status, payload.moderation_reason, current_user.id
         )
         self.repo.mark_reports_reviewed("post", post.id)
-        return self._serialize_post(post)
+        return self._serialize_post(post, current_user)
 
     def moderate_comment(
         self, current_user: User, comment_id: int, payload: CommunityModerationUpdate
@@ -285,7 +288,7 @@ class CommunityService:
             current_user.id,
         )
         self.repo.mark_reports_reviewed("comment", comment.id)
-        return self._serialize_comment(comment)
+        return self._serialize_comment(comment, current_user)
 
     def _auto_review_if_needed(self, obj, content: str, user_id: int):
         lowered = content.lower()
@@ -317,7 +320,7 @@ class CommunityService:
                 detail="Moderator access required",
             )
 
-    def _serialize_post(self, post):
+    def _serialize_post(self, post, current_user: User | None = None):
         author = self._serialize_author(post.user, post.is_anonymous)
         comments = post.comments or []
         return {
@@ -331,16 +334,17 @@ class CommunityService:
                 [
                     comment
                     for comment in comments
-                    if comment.moderation_status == "visible"
+                    if comment.moderation_status != "hidden"
                 ]
             ),
             "reactions": self._reaction_counts("post", [post.id]).get(post.id),
+            "my_reactions": self._user_reactions(current_user, "post", [post.id]).get(post.id, []),
             "reports_count": self._report_counts("post", [post.id]).get(post.id, 0),
             "created_at": post.created_at,
             "updated_at": post.updated_at,
         }
 
-    def _serialize_comment(self, comment):
+    def _serialize_comment(self, comment, current_user: User | None = None):
         author = self._serialize_author(comment.user, comment.is_anonymous)
         return {
             "id": comment.id,
@@ -349,6 +353,7 @@ class CommunityService:
             "is_anonymous": comment.is_anonymous,
             "author": author,
             "reactions": self._reaction_counts("comment", [comment.id]).get(comment.id),
+            "my_reactions": self._user_reactions(current_user, "comment", [comment.id]).get(comment.id, []),
             "reports_count": self._report_counts("comment", [comment.id]).get(
                 comment.id, 0
             ),
@@ -386,6 +391,13 @@ class CommunityService:
             target_id: counts.get(target_id, self.repo.empty_reactions())
             for target_id in target_ids
         }
+
+    def _user_reactions(
+        self, current_user: User | None, target_type: str, target_ids: list[int]
+    ) -> dict[int, list[str]]:
+        return self.repo.get_user_reactions(
+            current_user.id if current_user else None, target_type, target_ids
+        )
 
     def _report_counts(self, target_type: str, target_ids: list[int]) -> dict[int, int]:
         return self.repo.get_report_counts(target_type, target_ids)

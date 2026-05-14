@@ -86,6 +86,7 @@ class CommunityCommentResponse(BaseModel):
     is_anonymous: bool
     author: CommunityAuthor
     reactions: CommunityReactionSummary
+    my_reactions: list[ReactionType] = []
     reports_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -100,6 +101,7 @@ class CommunityPostResponse(BaseModel):
     author: CommunityAuthor
     comments_count: int
     reactions: CommunityReactionSummary
+    my_reactions: list[ReactionType] = []
     reports_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -114,6 +116,7 @@ class CommunityPostDetailResponse(BaseModel):
     author: CommunityAuthor
     comments_count: int
     reactions: CommunityReactionSummary
+    my_reactions: list[ReactionType] = []
     reports_count: int = 0
     created_at: datetime
     updated_at: datetime

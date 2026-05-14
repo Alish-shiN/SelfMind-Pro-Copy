@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
-from jose import jwt
-from backend.app.core.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from backend.app.core.config import settings
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -9,16 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import User
-from backend.app.core.config import SECRET_KEY, ALGORITHM
 
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
+    expire = datetime.utcnow() + timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    )
 
     to_encode.update({"exp": expire, "type": "access"})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
@@ -34,7 +33,9 @@ def get_current_user(
     )
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
 
         email: str = payload.get("sub")
         token_type: str = payload.get("type")

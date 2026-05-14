@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Modal,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,6 +28,7 @@ import {
   getArchiveFavoriteIds,
   toggleArchiveFavoriteId,
 } from "../lib/archiveFavorites";
+import { translateEmotionLabel, translateSentimentLabel } from "../utils/mood";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArchiveSearch">;
 
@@ -38,6 +40,94 @@ const TABS: Array<{
   { key: "insights", labelKey: "insights" },
   { key: "favorites", labelKey: "favorites" },
 ];
+
+
+function formatDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDateValue(value: string, days: number) {
+  const base = value ? new Date(`${value}T00:00:00`) : new Date();
+  base.setDate(base.getDate() + days);
+  return formatDateValue(base);
+}
+
+function DateRangeModal({
+  visible,
+  startDate,
+  endDate,
+  onCancel,
+  onApply,
+}: {
+  visible: boolean;
+  startDate: string;
+  endDate: string;
+  onCancel: () => void;
+  onApply: (startDate: string, endDate: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [draftStart, setDraftStart] = useState(startDate);
+  const [draftEnd, setDraftEnd] = useState(endDate);
+
+  useEffect(() => {
+    if (visible) {
+      setDraftStart(startDate);
+      setDraftEnd(endDate);
+    }
+  }, [endDate, startDate, visible]);
+
+  const applyPreset = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - (days - 1));
+    setDraftStart(formatDateValue(start));
+    setDraftEnd(formatDateValue(end));
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.dateModalBackdrop}>
+        <View style={styles.dateModalCard}>
+          <Text style={styles.dateModalTitle}>{t("dateRange")}</Text>
+          <View style={styles.presetRow}>
+            <Pressable style={styles.presetChip} onPress={() => applyPreset(7)}><Text style={styles.presetText}>{t("last7Days")}</Text></Pressable>
+            <Pressable style={styles.presetChip} onPress={() => applyPreset(30)}><Text style={styles.presetText}>{t("last30Days")}</Text></Pressable>
+            <Pressable style={styles.presetChip} onPress={() => { setDraftStart(""); setDraftEnd(""); }}><Text style={styles.presetText}>{t("clear")}</Text></Pressable>
+          </View>
+          <DateStepper label={t("fromDate")} value={draftStart} onChange={setDraftStart} />
+          <DateStepper label={t("toDate")} value={draftEnd} onChange={setDraftEnd} />
+          <View style={styles.dateModalActions}>
+            <Pressable style={styles.dateCancelBtn} onPress={onCancel}><Text style={styles.dateCancelText}>{t("cancel")}</Text></Pressable>
+            <Pressable style={styles.dateApplyBtn} onPress={() => onApply(draftStart, draftEnd)}><Text style={styles.dateApplyText}>{t("apply")}</Text></Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function DateStepper({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const displayValue = value || "—";
+  return (
+    <View style={styles.dateStepper}>
+      <Text style={styles.dateStepperLabel}>{label}</Text>
+      <View style={styles.dateStepperRow}>
+        <Pressable style={styles.dateStepBtn} onPress={() => onChange(shiftDateValue(value, -1))}>
+          <Ionicons name="chevron-back" size={18} color={colors.coral} />
+        </Pressable>
+        <Pressable style={styles.dateValueBtn} onPress={() => onChange(formatDateValue(new Date()))}>
+          <Text style={styles.dateValueText}>{displayValue}</Text>
+        </Pressable>
+        <Pressable style={styles.dateStepBtn} onPress={() => onChange(shiftDateValue(value, 1))}>
+          <Ionicons name="chevron-forward" size={18} color={colors.coral} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function splitTags(value: string) {
   return value
@@ -83,6 +173,7 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [dateRangeVisible, setDateRangeVisible] = useState(false);
   const [moodOrEmotion, setMoodOrEmotion] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -152,7 +243,7 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
       setSearched(true);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return;
       }
       setError(
@@ -274,22 +365,14 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
 
         <View style={styles.filtersCard}>
           <Text style={styles.filterTitle}>{t("filters")}</Text>
-          <View style={styles.filterGrid}>
-            <TextInput
-              style={styles.filterInput}
-              value={startDate}
-              onChangeText={setStartDate}
-              placeholder={t("startDate")}
-              placeholderTextColor={colors.textMuted}
-            />
-            <TextInput
-              style={styles.filterInput}
-              value={endDate}
-              onChangeText={setEndDate}
-              placeholder={t("endDate")}
-              placeholderTextColor={colors.textMuted}
-            />
-          </View>
+          <Pressable style={styles.dateRangeButton} onPress={() => setDateRangeVisible(true)}>
+            <Ionicons name="calendar-outline" size={16} color={colors.coral} />
+            <Text style={styles.dateRangeText}>
+              {startDate || endDate
+                ? `${startDate || t("fromDate")} → ${endDate || t("toDate")}`
+                : t("selectDateRange")}
+            </Text>
+          </Pressable>
           <TextInput
             style={styles.filterInput}
             value={moodOrEmotion}
@@ -427,10 +510,10 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
                     </Text>
                   </View>
                   {item.emotion_label ? (
-                    <Text style={styles.metaText}>{item.emotion_label}</Text>
+                    <Text style={styles.metaText}>{translateEmotionLabel(item.emotion_label, t)}</Text>
                   ) : null}
                   {item.sentiment_label ? (
-                    <Text style={styles.metaText}>{item.sentiment_label}</Text>
+                    <Text style={styles.metaText}>{translateSentimentLabel(item.sentiment_label, t)}</Text>
                   ) : null}
                   {item.tags?.slice(0, 3).map((tag) => (
                     <Text key={tag} style={styles.tagText}>
@@ -443,6 +526,17 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
           </View>
         ) : null}
       </ScrollView>
+      <DateRangeModal
+        visible={dateRangeVisible}
+        startDate={startDate}
+        endDate={endDate}
+        onCancel={() => setDateRangeVisible(false)}
+        onApply={(nextStart, nextEnd) => {
+          setStartDate(nextStart);
+          setEndDate(nextEnd);
+          setDateRangeVisible(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -502,7 +596,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   filterTitle: { color: colors.text, fontWeight: "900", fontSize: 14 },
-  filterGrid: { flexDirection: "row", gap: 8 },
+  dateRangeButton: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F8FAFF", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 12 },
+  dateRangeText: { flex: 1, color: colors.text, fontSize: 12, fontWeight: "800" },
   filterInput: {
     flex: 1,
     backgroundColor: "#F8FAFF",
@@ -516,6 +611,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   filterActions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  dateModalBackdrop: { flex: 1, backgroundColor: "rgba(17, 24, 39, 0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
+  dateModalCard: { width: "100%", maxWidth: 380, backgroundColor: colors.white, borderRadius: 24, padding: 18, gap: 12 },
+  dateModalTitle: { fontSize: 18, fontWeight: "900", color: colors.text, textAlign: "center" },
+  presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
+  presetChip: { backgroundColor: "#FFF3F1", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  presetText: { color: colors.coral, fontWeight: "900", fontSize: 12 },
+  dateStepper: { gap: 6 },
+  dateStepperLabel: { color: colors.textMuted, fontSize: 12, fontWeight: "900" },
+  dateStepperRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  dateStepBtn: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF3F1" },
+  dateValueBtn: { flex: 1, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#F8FAFF", borderWidth: 1, borderColor: "#E5E7EB" },
+  dateValueText: { color: colors.text, fontWeight: "900" },
+  dateModalActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  dateCancelBtn: { flex: 1, paddingVertical: 13, borderRadius: 16, alignItems: "center", backgroundColor: "#EEF2F7" },
+  dateCancelText: { color: colors.textMuted, fontWeight: "900" },
+  dateApplyBtn: { flex: 1, paddingVertical: 13, borderRadius: 16, alignItems: "center", backgroundColor: colors.coral },
+  dateApplyText: { color: "#fff", fontWeight: "900" },
   chip: {
     flexDirection: "row",
     alignItems: "center",

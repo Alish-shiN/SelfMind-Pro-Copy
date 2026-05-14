@@ -105,24 +105,6 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps) {
                 onChangeText={setPassword}
               />
 
-              <Pressable
-                style={styles.forgotWrap}
-                onPress={() =>
-                  Alert.alert(t("forgotPassword"), t("forgotPasswordHelp"))
-                }
-              >
-                <Text style={styles.forgot}>{t("forgotPassword")}</Text>
-              </Pressable>
-
-              <Text style={styles.orConnect}>{t("orConnectWith")}</Text>
-              <Pressable
-                style={styles.googleRow}
-                onPress={() =>
-                  Alert.alert(t("googleSignIn"), t("googleSignInHelp"))
-                }
-              >
-                <Text style={styles.googleG}>G</Text>
-              </Pressable>
 
               <Pressable
                 style={[styles.primaryBtn, loading && styles.btnDisabled]}
