@@ -18,7 +18,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { ApiError, apiFetch } from "../api/client";
 import { checkSafetyText } from "../api/safety";
 import { getUserPreferences } from "../api/user";
-import { scheduleJournalEntryReminder } from "../lib/notifications";
 import { colors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 import { languageLocales, useTranslation } from "../i18n/I18nContext";
@@ -286,7 +285,6 @@ function NewEntryModal({
   onCreated,
   onSafetyNeeded,
   initialEntryDate,
-  initialNotificationEnabled,
   defaultPrivate,
 }: {
   visible: boolean;
@@ -294,7 +292,6 @@ function NewEntryModal({
   onCreated: () => void;
   onSafetyNeeded: () => void;
   initialEntryDate?: string;
-  initialNotificationEnabled?: boolean;
   defaultPrivate: boolean;
 }) {
   const { t, language } = useTranslation();
@@ -303,12 +300,6 @@ function NewEntryModal({
   const [moodScore, setMoodScore] = useState(5);
   const [tagsRaw, setTagsRaw] = useState("");
   const [isPrivate, setIsPrivate] = useState(defaultPrivate);
-  const [pushNotificationEnabled, setPushNotificationEnabled] = useState(
-    Boolean(initialNotificationEnabled),
-  );
-  const [notificationTitle, setNotificationTitle] = useState("");
-  const [notificationTime, setNotificationTime] = useState("20:00");
-  const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const reset = () => {
@@ -317,9 +308,6 @@ function NewEntryModal({
     setMoodScore(5);
     setTagsRaw("");
     setIsPrivate(defaultPrivate);
-    setPushNotificationEnabled(Boolean(initialNotificationEnabled));
-    setNotificationTitle("");
-    setNotificationTime("20:00");
   };
 
   useEffect(() => {
@@ -337,37 +325,18 @@ function NewEntryModal({
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      const notificationTitleValue = pushNotificationEnabled
-        ? notificationTitle.trim() || title.trim()
-        : null;
-
-      const created = await createEntry({
+      await createEntry({
         title: title.trim(),
         content: content.trim(),
         mood_score: moodScore,
         tags,
         is_private: isPrivate,
-        push_notification_enabled: pushNotificationEnabled,
-        notification_title: notificationTitleValue,
-        notification_time: pushNotificationEnabled ? notificationTime : null,
+        push_notification_enabled: false,
+        notification_title: null,
+        notification_time: null,
         entry_date: initialEntryDate,
         language,
       });
-
-      if (pushNotificationEnabled) {
-        const scheduleResult = await scheduleJournalEntryReminder({
-          entryId: created.id,
-          entryDate: initialEntryDate,
-          time: notificationTime,
-          title: notificationTitleValue || t("journalReminder"),
-        });
-        if (!scheduleResult.scheduled && scheduleResult.unavailableReason) {
-          Alert.alert(
-            t("notificationNotScheduled"),
-            scheduleResult.unavailableReason,
-          );
-        }
-      }
 
       const safetyResult = await checkSafetyText(
         content.trim(),
@@ -449,84 +418,6 @@ function NewEntryModal({
 
             <MoodPicker value={moodScore} onChange={setMoodScore} />
 
-            <View style={neStyles.notificationCard}>
-              <Pressable
-                style={neStyles.notificationRow}
-                onPress={() => setPushNotificationEnabled((value) => !value)}
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={20}
-                  color={colors.coral}
-                />
-                <View style={neStyles.notificationTextWrap}>
-                  <Text style={neStyles.notificationLabel}>
-                    {t("pushNotification")}
-                  </Text>
-                  <Text style={neStyles.notificationHint}>
-                    {pushNotificationEnabled
-                      ? `${t("reminderScheduledFor")} ${notificationTime}.`
-                      : t("noNotificationForEntry")}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    neStyles.toggle,
-                    pushNotificationEnabled && neStyles.toggleOn,
-                  ]}
-                >
-                  <View
-                    style={[
-                      neStyles.toggleThumb,
-                      pushNotificationEnabled && neStyles.toggleThumbOn,
-                    ]}
-                  />
-                </View>
-              </Pressable>
-
-              {pushNotificationEnabled ? (
-                <View style={neStyles.notificationDetails}>
-                  <Pressable
-                    style={neStyles.notificationTimeRow}
-                    onPress={() => setTimePickerVisible(true)}
-                  >
-                    <Ionicons
-                      name="time-outline"
-                      size={18}
-                      color={colors.coral}
-                    />
-                    <Text style={neStyles.notificationTimeLabel}>
-                      {t("notificationTime")}
-                    </Text>
-                    <Text style={neStyles.notificationTimeValue}>
-                      {notificationTime}
-                    </Text>
-                  </Pressable>
-                  <TextInput
-                    style={neStyles.notificationTitleInput}
-                    placeholder={t("notificationTitlePlaceholder")}
-                    placeholderTextColor={colors.textPlaceholder}
-                    selectionColor={colors.coral}
-                    cursorColor={colors.text}
-                    value={notificationTitle}
-                    onChangeText={setNotificationTitle}
-                    maxLength={200}
-                  />
-                </View>
-              ) : null}
-            </View>
-
-            <TimePickerModal
-              visible={timePickerVisible}
-              value={notificationTime}
-              title={t("journalNotificationTime")}
-              onCancel={() => setTimePickerVisible(false)}
-              onSelect={(time) => {
-                setNotificationTime(time);
-                setTimePickerVisible(false);
-              }}
-            />
-
             <TextInput
               style={neStyles.contentInput}
               placeholder={t("writeFeelingPlaceholder")}
@@ -560,7 +451,7 @@ function NewEntryModal({
                 color={colors.textMuted}
               />
               <Text style={neStyles.privacyText}>
-                {isPrivate ? "Private entry" : "Public entry"}
+                {isPrivate ? t("privateEntry") : t("publicEntry")}
               </Text>
               <View style={[neStyles.toggle, isPrivate && neStyles.toggleOn]}>
                 <View
@@ -1057,7 +948,6 @@ export function AIDiaryScreen({ route, navigation }: Props) {
   const { t, language } = useTranslation();
   const locale = languageLocales[language as keyof typeof languageLocales];
   const initialEntryDate = route.params?.entryDate;
-  const initialNotificationEnabled = route.params?.notificationEnabled;
 
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1082,7 +972,7 @@ export function AIDiaryScreen({ route, navigation }: Props) {
       }
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return;
       }
       setError(e instanceof ApiError ? e.message : t("couldNotLoadEntries"));
@@ -1240,7 +1130,6 @@ export function AIDiaryScreen({ route, navigation }: Props) {
         }}
         onSafetyNeeded={() => navigation.navigate("Safety")}
         initialEntryDate={initialEntryDate}
-        initialNotificationEnabled={initialNotificationEnabled}
         defaultPrivate={defaultPrivate}
       />
       {selected && (

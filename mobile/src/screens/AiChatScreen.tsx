@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors } from "../theme/colors";
@@ -32,6 +32,7 @@ type ChatMessage = { id: number; role: "user" | "assistant"; text: string };
 export function AiChatScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const { signOut } = useAuth();
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,10 +40,11 @@ export function AiChatScreen({ navigation }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [awaitingAssistant, setAwaitingAssistant] = useState(false);
   const mountedRef = useRef(false);
+  const scrollRef = useRef<ScrollView | null>(null);
 
   const canSend = useMemo(
-    () => text.trim().length > 0 && !loading,
-    [text, loading],
+    () => text.trim().length > 0 && !loading && !awaitingAssistant,
+    [awaitingAssistant, loading, text],
   );
 
   const bootstrap = useCallback(async () => {
@@ -67,7 +69,7 @@ export function AiChatScreen({ navigation }: Props) {
       );
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return;
       }
       setError(e instanceof ApiError ? e.message : t("couldNotLoadChat"));
@@ -84,24 +86,31 @@ export function AiChatScreen({ navigation }: Props) {
     };
   }, [bootstrap]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    return () => clearTimeout(timeout);
+  }, [awaitingAssistant, messages.length]);
+
   const send = useCallback(async () => {
     if (!canSend || sessionId == null) return;
 
     const content = text.trim();
+    const tempId = -Date.now();
     setText("");
-    setLoading(true);
+    setError(null);
     setAwaitingAssistant(true);
+    setMessages((prev) => [...prev, { id: tempId, role: "user", text: content }]);
 
     try {
       const res = await sendChatMessage(sessionId, content);
-      // Backend returns both messages so we render the real assistant reply.
+      // Backend returns both messages so we replace the optimistic user message
+      // and render the real assistant reply underneath it.
       setMessages((prev) => [
-        ...prev,
-        {
-          id: res.user_message.id,
-          role: "user",
-          text: res.user_message.content,
-        },
+        ...prev.map((message) =>
+          message.id === tempId
+            ? ({ id: res.user_message.id, role: "user", text: res.user_message.content } as ChatMessage)
+            : message,
+        ),
         {
           id: res.assistant_message.id,
           role: "assistant",
@@ -110,18 +119,17 @@ export function AiChatScreen({ navigation }: Props) {
       ]);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return;
       }
       setError(e instanceof ApiError ? e.message : t("couldNotSendMessage"));
     } finally {
-      setLoading(false);
       setAwaitingAssistant(false);
     }
-  }, [canSend, sessionId, signOut, text]);
+  }, [canSend, sessionId, signOut, t, text]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -136,6 +144,7 @@ export function AiChatScreen({ navigation }: Props) {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
@@ -152,10 +161,7 @@ export function AiChatScreen({ navigation }: Props) {
           {!loading && !error && messages.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyTitle}>{t("startConversation")}</Text>
-              <Text style={styles.emptySub}>
-                Share what you’re feeling today. Your assistant will respond
-                with supportive, reflective guidance.
-              </Text>
+              <Text style={styles.emptySub}>{t("aiChatEmptySub")}</Text>
             </View>
           ) : null}
 
@@ -191,13 +197,16 @@ export function AiChatScreen({ navigation }: Props) {
           })}
 
           {awaitingAssistant ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.coral} />
+            <View style={[styles.bubbleRow, styles.bubbleRowAssistant]}>
+              <View style={[styles.bubble, styles.bubbleAssistant, styles.typingBubble]}>
+                <ActivityIndicator color={colors.coral} size="small" />
+                <Text style={styles.typingText}>{t("assistantTyping")}</Text>
+              </View>
             </View>
           ) : null}
         </ScrollView>
 
-        <View style={styles.composer}>
+        <View style={[styles.composer, { paddingBottom: Math.max(8, insets.bottom) }]}>
           <TextInput
             style={styles.input}
             placeholder={t("writeMessage")}
@@ -207,7 +216,7 @@ export function AiChatScreen({ navigation }: Props) {
             value={text}
             onChangeText={setText}
             multiline
-            editable={!loading}
+            editable={!loading && !awaitingAssistant}
           />
           <Pressable
             style={[styles.sendBtn, !canSend && { opacity: 0.55 }]}
@@ -234,7 +243,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 17, fontWeight: "800", color: colors.text },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  listContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 10 },
 
   bubbleRow: { flexDirection: "row" },
   bubbleRowUser: { justifyContent: "flex-end" },
@@ -254,7 +263,8 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 14, lineHeight: 20 },
   bubbleTextUser: { color: colors.white },
   bubbleTextAssistant: { color: colors.text },
-  loadingRow: { alignItems: "center", paddingVertical: 8 },
+  typingBubble: { flexDirection: "row", alignItems: "center", gap: 8 },
+  typingText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
 
   errBox: {
     margin: 16,
@@ -292,7 +302,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
     borderTopWidth: 1,
     borderTopColor: "#EEF2FF",
     backgroundColor: colors.backgroundSoft,

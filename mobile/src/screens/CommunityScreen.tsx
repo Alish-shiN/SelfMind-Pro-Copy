@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { apiFetch } from "../api/client";
+import { ApiError, apiFetch } from "../api/client";
+import { getCurrentUser, getUserPreferences } from "../api/user";
+import type { UserResponse } from "../api/auth";
 import { colors } from "../theme/colors";
 import { useTranslation } from "../i18n/I18nContext";
 
@@ -33,6 +35,8 @@ type SupportSpaceKey =
   | "exam_anxiety"
   | "motivation";
 type ReactionType = "support" | "me_too" | "sending_strength" | "helpful";
+type ReactionState = Partial<Record<ReactionType, boolean>>;
+type ReactionResponse = { active: boolean; reactions: ReactionSummary };
 
 type SupportSpace = {
   key: SupportSpaceKey;
@@ -76,7 +80,7 @@ type CommunityComment = {
 type PostDetail = CommunityPost & { comments: CommunityComment[] };
 
 const FALLBACK_SPACES: SupportSpace[] = [
-  { key: "general", title: "general", description: "openSupport", emoji: "💬" },
+  { key: "general", title: "generalSupport", description: "openSupport", emoji: "💬" },
   {
     key: "study_stress",
     title: "studyStress",
@@ -162,24 +166,48 @@ const reportComment = (id: number, reason = "inappropriate") =>
     body: JSON.stringify({ reason }),
   });
 const reactToPost = (id: number, reaction_type: ReactionType) =>
-  apiFetch(`/community/posts/${id}/reactions`, {
+  apiFetch<ReactionResponse>(`/community/posts/${id}/reactions`, {
     method: "POST",
     auth: true,
     body: JSON.stringify({ reaction_type }),
   });
 const reactToComment = (id: number, reaction_type: ReactionType) =>
-  apiFetch(`/community/comments/${id}/reactions`, {
+  apiFetch<ReactionResponse>(`/community/comments/${id}/reactions`, {
     method: "POST",
     auth: true,
     body: JSON.stringify({ reaction_type }),
   });
 
-function timeAgo(iso: string, t: (key: string) => string): string {
-  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+function timeAgo(iso: string, t: (key: string, params?: Record<string, string | number>) => string): string {
+  const diff = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (diff < 60) return t("justNow");
-  if (diff < 3600) return `${Math.floor(diff / 60)}${t("minutesAgoSuffix")}`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}${t("hoursAgoSuffix")}`;
-  return `${Math.floor(diff / 86400)}${t("daysAgoSuffix")}`;
+  if (diff < 3600) return t("minutesAgo", { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t("hoursAgo", { count: Math.floor(diff / 3600) });
+  return t("daysAgo", { count: Math.floor(diff / 86400) });
+}
+
+function supportSpaceTitle(space: SupportSpace | undefined, t: (key: string) => string, fallback?: string) {
+  if (!space) return fallback ?? t("generalSupport");
+  return t(`${space.key}Title`);
+}
+
+function supportSpaceDescription(space: SupportSpace, t: (key: string) => string) {
+  return t(`${space.key}Desc`);
+}
+
+function guidelineKeys(guidelines: Guidelines | null) {
+  return guidelines?.principles?.length
+    ? guidelines.principles.map((_, index) => `communityRule${index + 1}`)
+    : ["communityRule1", "communityRule2", "communityRule3", "communityRule4", "communityRule5"];
+}
+
+function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | null) {
+  if (!currentUser || author.id === null) return false;
+  return (
+    author.id === currentUser.id ||
+    currentUser.role === "admin" ||
+    currentUser.role === "moderator"
+  );
 }
 
 function parseTags(raw: string) {
@@ -192,29 +220,35 @@ function parseTags(raw: string) {
 
 function ReactionRow({
   reactions,
+  activeReactions = {},
   onReact,
 }: {
   reactions: ReactionSummary;
+  activeReactions?: ReactionState;
   onReact: (type: ReactionType) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={shared.reactionRow}>
-      {REACTIONS.map((reaction) => (
-        <Pressable
-          key={reaction.key}
-          style={shared.reactionChip}
-          onPress={() => onReact(reaction.key)}
-        >
-          <Ionicons
-            name={reaction.icon as any}
-            size={13}
-            color={colors.textMuted}
-          />
-          <Text style={shared.reactionText}>
-            {reactions?.[reaction.key] ?? 0}
-          </Text>
-        </Pressable>
-      ))}
+      {REACTIONS.map((reaction) => {
+        const selected = Boolean(activeReactions[reaction.key]);
+        return (
+          <Pressable
+            key={reaction.key}
+            style={[shared.reactionChip, selected && shared.reactionChipActive]}
+            onPress={() => onReact(reaction.key)}
+          >
+            <Ionicons
+              name={reaction.icon as any}
+              size={13}
+              color={selected ? colors.coral : colors.textMuted}
+            />
+            <Text style={[shared.reactionText, selected && shared.reactionTextActive]}>
+              {t(reaction.label)} · {reactions?.[reaction.key] ?? 0}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -243,14 +277,15 @@ function GuidelinesModal({
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={modalStyles.body}>
-          {(guidelines?.principles ?? []).map((item) => (
-            <View key={item} style={modalStyles.guidelineItem}>
+          <Text style={modalStyles.guidelineIntro}>{t("communityGuidelinesIntro")}</Text>
+          {guidelineKeys(guidelines).map((key) => (
+            <View key={key} style={modalStyles.guidelineItem}>
               <Ionicons
                 name="shield-checkmark-outline"
                 size={18}
                 color={colors.coral}
               />
-              <Text style={modalStyles.guidelineText}>{item}</Text>
+              <Text style={modalStyles.guidelineText}>{t(key)}</Text>
             </View>
           ))}
           <Text style={modalStyles.subtitle}>{t("supportSpaces")}</Text>
@@ -259,14 +294,10 @@ function GuidelinesModal({
               <Text style={modalStyles.spaceEmoji}>{space.emoji}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={modalStyles.spaceTitle}>
-                  {space.title in ({} as Record<string, never>)
-                    ? space.title
-                    : t(space.title)}
+                  {supportSpaceTitle(space, t)}
                 </Text>
                 <Text style={modalStyles.spaceDesc}>
-                  {space.description in ({} as Record<string, never>)
-                    ? space.description
-                    : t(space.description)}
+                  {supportSpaceDescription(space, t)}
                 </Text>
               </View>
             </View>
@@ -282,18 +313,24 @@ function NewPostModal({
   spaces,
   onClose,
   onCreated,
+  defaultAnonymous,
 }: {
   visible: boolean;
   spaces: SupportSpace[];
   onClose: () => void;
   onCreated: () => void;
+  defaultAnonymous: boolean;
 }) {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
   const [space, setSpace] = useState<SupportSpaceKey | string>("general");
-  const [isAnon, setIsAnon] = useState(false);
+  const [isAnon, setIsAnon] = useState(defaultAnonymous);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (visible) setIsAnon(defaultAnonymous);
+  }, [defaultAnonymous, visible]);
 
   const submit = async () => {
     if (!content.trim()) {
@@ -306,7 +343,7 @@ function NewPostModal({
       setContent("");
       setTags("");
       setSpace("general");
-      setIsAnon(false);
+      setIsAnon(defaultAnonymous);
       onCreated();
     } catch (e: any) {
       Alert.alert(t("error"), e?.message ?? t("couldNotPost"));
@@ -328,28 +365,31 @@ function NewPostModal({
         <SafeAreaView style={modalStyles.safe} edges={["top", "bottom"]}>
           <View style={modalStyles.topBar}>
             <Pressable
+              style={modalStyles.headerSide}
               onPress={() => {
                 setContent("");
                 onClose();
               }}
             >
-              <Text style={modalStyles.cancel}>{t("cancel")}</Text>
+              <Text style={modalStyles.cancel} numberOfLines={1}>{t("cancel")}</Text>
             </Pressable>
-            <Text style={modalStyles.title}>{t("newSupportPost")}</Text>
-            <Pressable
-              style={[
-                modalStyles.postBtn,
-                (!content.trim() || loading) && { opacity: 0.5 },
-              ]}
-              onPress={submit}
-              disabled={!content.trim() || loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={modalStyles.postText}>{t("post")}</Text>
-              )}
-            </Pressable>
+            <Text style={modalStyles.title} numberOfLines={1}>{t("newSupportPost")}</Text>
+            <View style={modalStyles.headerSideRight}>
+              <Pressable
+                style={[
+                  modalStyles.postBtn,
+                  (!content.trim() || loading) && { opacity: 0.5 },
+                ]}
+                onPress={submit}
+                disabled={!content.trim() || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={modalStyles.postText} numberOfLines={1}>{t("post")}</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
           <ScrollView
             contentContainerStyle={modalStyles.body}
@@ -367,7 +407,7 @@ function NewPostModal({
                   onPress={() => setSpace(item.key)}
                 >
                   <Text style={modalStyles.spaceChipText}>
-                    {item.emoji} {item.title}
+                    {item.emoji} {supportSpaceTitle(item, t)}
                   </Text>
                 </Pressable>
               ))}
@@ -417,6 +457,8 @@ function PostCard({
   onDelete,
   onReport,
   onReact,
+  canDelete,
+  activeReactions,
 }: {
   post: CommunityPost;
   space?: SupportSpace;
@@ -424,6 +466,8 @@ function PostCard({
   onDelete: () => void;
   onReport: () => void;
   onReact: (reaction: ReactionType) => void | Promise<void>;
+  canDelete: boolean;
+  activeReactions?: ReactionState;
 }) {
   const { t } = useTranslation();
   return (
@@ -438,7 +482,7 @@ function PostCard({
           <Text style={cardStyles.author}>{post.author.username}</Text>
           <Text style={cardStyles.time}>
             {space?.emoji ?? "💬"}{" "}
-            {space?.title ? t(space.title) : post.support_space} ·{" "}
+            {supportSpaceTitle(space, t, String(post.support_space))} ·{" "}
             {timeAgo(post.created_at, t)}
           </Text>
         </View>
@@ -458,7 +502,7 @@ function PostCard({
           ))}
         </View>
       ) : null}
-      <ReactionRow reactions={post.reactions} onReact={onReact} />
+      <ReactionRow reactions={post.reactions} activeReactions={activeReactions} onReact={onReact} />
       <View style={cardStyles.footer}>
         <View style={cardStyles.commentChip}>
           <Ionicons
@@ -471,7 +515,7 @@ function PostCard({
         <Pressable onPress={onReport} hitSlop={8}>
           <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
         </Pressable>
-        {post.author.id !== null ? (
+        {canDelete ? (
           <Pressable onPress={onDelete} hitSlop={8}>
             <Ionicons name="trash-outline" size={16} color="#D1D5DB" />
           </Pressable>
@@ -483,17 +527,33 @@ function PostCard({
 
 function PostDetailModal({
   postId,
+  currentUser,
+  defaultAnonymous,
+  activePostReactions,
+  activeCommentReactions,
+  onPostReacted,
+  onCommentReacted,
   onClose,
 }: {
   postId: number;
+  currentUser: UserResponse | null;
+  defaultAnonymous: boolean;
+  activePostReactions?: ReactionState;
+  activeCommentReactions: Record<number, ReactionState>;
+  onPostReacted: (postId: number, reaction: ReactionType, response: ReactionResponse) => void;
+  onCommentReacted: (commentId: number, reaction: ReactionType, response: ReactionResponse) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
-  const [isAnon, setIsAnon] = useState(false);
+  const [isAnon, setIsAnon] = useState(defaultAnonymous);
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    setIsAnon(defaultAnonymous);
+  }, [defaultAnonymous]);
 
   const load = useCallback(async () => {
     try {
@@ -566,9 +626,11 @@ function PostDetailModal({
                 <Text style={cardStyles.content}>{detail.content}</Text>
                 <ReactionRow
                   reactions={detail.reactions}
+                  activeReactions={activePostReactions}
                   onReact={async (reaction) => {
-                    await reactToPost(detail.id, reaction);
-                    load();
+                    const response = await reactToPost(detail.id, reaction);
+                    onPostReacted(detail.id, reaction, response);
+                    setDetail((current) => current ? { ...current, reactions: response.reactions } : current);
                   }}
                 />
               </View>
@@ -587,16 +649,27 @@ function PostDetailModal({
                   </Text>
                   <ReactionRow
                     reactions={comment.reactions}
+                    activeReactions={activeCommentReactions[comment.id]}
                     onReact={async (reaction) => {
-                      await reactToComment(comment.id, reaction);
-                      load();
+                      const response = await reactToComment(comment.id, reaction);
+                      onCommentReacted(comment.id, reaction, response);
+                      setDetail((current) =>
+                        current
+                          ? {
+                              ...current,
+                              comments: current.comments.map((item) =>
+                                item.id === comment.id ? { ...item, reactions: response.reactions } : item,
+                              ),
+                            }
+                          : current,
+                      );
                     }}
                   />
                   <View style={modalStyles.commentActions}>
                     <Pressable onPress={() => confirmReportComment(comment.id)}>
                       <Text style={modalStyles.actionText}>{t("report")}</Text>
                     </Pressable>
-                    {comment.author.id !== null ? (
+                    {canDeleteContent(comment.author, currentUser) ? (
                       <Pressable
                         onPress={async () => {
                           await deleteComment(comment.id);
@@ -654,33 +727,50 @@ export function CommunityScreen() {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [guidelines, setGuidelines] = useState<Guidelines | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
+  const [defaultAnonymous, setDefaultAnonymous] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [activePostReactions, setActivePostReactions] = useState<Record<number, ReactionState>>({});
+  const [activeCommentReactions, setActiveCommentReactions] = useState<Record<number, ReactionState>>({});
 
-  const spaces = guidelines?.support_spaces ?? FALLBACK_SPACES;
-  const spaceByKey = Object.fromEntries(
-    spaces.map((space) => [space.key, space]),
+  const spaces = useMemo(
+    () => (guidelines?.support_spaces?.length ? guidelines.support_spaces : FALLBACK_SPACES),
+    [guidelines],
+  );
+  const spaceByKey = useMemo(
+    () => Object.fromEntries(spaces.map((space) => [space.key, space])),
+    [spaces],
   );
 
   const load = useCallback(async () => {
+    setError(null);
     try {
-      const [guideData, feedData] = await Promise.all([
+      const [guideData, feedData, userData, prefsData] = await Promise.all([
         getGuidelines(),
         getFeed(selectedSpace),
+        getCurrentUser().catch(() => null),
+        getUserPreferences().catch(() => null),
       ]);
       setGuidelines(guideData);
       setPosts(feedData);
-    } catch {
-      /* silent */
+      setCurrentUser(userData);
+      if (prefsData) {
+        setDefaultAnonymous(prefsData.privacy_preferences.anonymous_community_default);
+      }
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : t("couldNotLoadDashboard");
+      setError(message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedSpace]);
+  }, [selectedSpace, t]);
 
   useEffect(() => {
     load();
@@ -688,6 +778,34 @@ export function CommunityScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     load();
+  };
+
+  const updateActiveReaction = (
+    setter: React.Dispatch<React.SetStateAction<Record<number, ReactionState>>>,
+    targetId: number,
+    reaction: ReactionType,
+    active: boolean,
+  ) => {
+    setter((current) => ({
+      ...current,
+      [targetId]: {
+        ...(current[targetId] ?? {}),
+        [reaction]: active,
+      },
+    }));
+  };
+
+  const handlePostReacted = (postId: number, reaction: ReactionType, response: ReactionResponse) => {
+    updateActiveReaction(setActivePostReactions, postId, reaction, response.active);
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === postId ? { ...post, reactions: response.reactions } : post,
+      ),
+    );
+  };
+
+  const handleCommentReacted = (commentId: number, reaction: ReactionType, response: ReactionResponse) => {
+    updateActiveReaction(setActiveCommentReactions, commentId, reaction, response.active);
   };
 
   const confirmReportPost = (id: number) => {
@@ -698,7 +816,6 @@ export function CommunityScreen() {
         onPress: async () => {
           await reportPost(id);
           Alert.alert(t("thanks"), t("moderatorsReview"));
-          load();
         },
       },
     ]);
@@ -772,9 +889,7 @@ export function CommunityScreen() {
             >
               <Text style={styles.spaceFilterText}>
                 {space.emoji}{" "}
-                {space.title in ({} as Record<string, never>)
-                  ? space.title
-                  : t(space.title)}
+                {supportSpaceTitle(space, t)}
               </Text>
             </Pressable>
           ))}
@@ -793,7 +908,14 @@ export function CommunityScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {posts.length === 0 ? (
+          {error ? (
+            <View style={styles.errBox}>
+              <Text style={styles.errText}>{error}</Text>
+              <Pressable style={styles.retryBtn} onPress={load}>
+                <Text style={styles.retryText}>{t("retry")}</Text>
+              </Pressable>
+            </View>
+          ) : posts.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>💬</Text>
               <Text style={styles.emptyTitle}>{t("noPostsYet")}</Text>
@@ -809,9 +931,11 @@ export function CommunityScreen() {
                 onDelete={() => handleDeletePost(post.id)}
                 onReport={() => confirmReportPost(post.id)}
                 onReact={async (reaction) => {
-                  await reactToPost(post.id, reaction);
-                  load();
+                  const response = await reactToPost(post.id, reaction);
+                  handlePostReacted(post.id, reaction, response);
                 }}
+                canDelete={canDeleteContent(post.author, currentUser)}
+                activeReactions={activePostReactions[post.id]}
               />
             ))
           )}
@@ -829,6 +953,7 @@ export function CommunityScreen() {
           setShowNew(false);
           load();
         }}
+        defaultAnonymous={defaultAnonymous}
       />
       <GuidelinesModal
         visible={showGuidelines}
@@ -838,6 +963,12 @@ export function CommunityScreen() {
       {selectedPostId !== null ? (
         <PostDetailModal
           postId={selectedPostId}
+          currentUser={currentUser}
+          defaultAnonymous={defaultAnonymous}
+          activePostReactions={activePostReactions[selectedPostId]}
+          activeCommentReactions={activeCommentReactions}
+          onPostReacted={handlePostReacted}
+          onCommentReacted={handleCommentReacted}
           onClose={() => {
             setSelectedPostId(null);
             load();
@@ -861,11 +992,15 @@ const shared = StyleSheet.create({
     alignItems: "center",
     gap: 4,
     backgroundColor: colors.backgroundSoft,
+    borderWidth: 1,
+    borderColor: "transparent",
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 999,
   },
+  reactionChipActive: { backgroundColor: "#FFF0EE", borderColor: colors.coral },
   reactionText: { fontSize: 12, color: colors.textMuted, fontWeight: "700" },
+  reactionTextActive: { color: colors.coral, fontWeight: "900" },
 });
 
 const cardStyles = StyleSheet.create({
@@ -934,24 +1069,28 @@ const modalStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     paddingVertical: 14,
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
+    gap: 8,
   },
-  title: { fontSize: 17, fontWeight: "800", color: colors.text },
-  cancel: { fontSize: 15, color: colors.textMuted },
+  headerSide: { flex: 1, minWidth: 74, alignItems: "flex-start" },
+  headerSideRight: { flex: 1, minWidth: 86, alignItems: "flex-end" },
+  title: { flex: 1.4, textAlign: "center", fontSize: 17, fontWeight: "800", color: colors.text },
+  cancel: { fontSize: 15, color: colors.textMuted, fontWeight: "700" },
   done: { fontSize: 15, color: colors.coral, fontWeight: "800" },
   postBtn: {
     backgroundColor: colors.coral,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
     minWidth: 64,
+    maxWidth: 112,
     alignItems: "center",
   },
-  postText: { color: "#fff", fontWeight: "800" },
+  postText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   body: { padding: 20, paddingBottom: 40 },
   fieldLabel: {
     fontSize: 13,
@@ -1020,6 +1159,7 @@ const modalStyles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 10,
   },
+  guidelineIntro: { color: colors.textMuted, fontSize: 13, fontWeight: "700", lineHeight: 19, marginBottom: 12 },
   guidelineText: { flex: 1, color: colors.text, lineHeight: 20, fontSize: 14 },
   subtitle: {
     color: colors.text,
@@ -1142,6 +1282,21 @@ const styles = StyleSheet.create({
   spaceFilterOn: { backgroundColor: "#FFF0EE", borderColor: colors.coral },
   spaceFilterText: { color: colors.text, fontWeight: "800", fontSize: 12 },
   scroll: { paddingHorizontal: 20, paddingBottom: 100 },
+  errBox: {
+    backgroundColor: "#FFE5E5",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+  },
+  errText: { color: "#B91C1C", fontWeight: "700", marginBottom: 10 },
+  retryBtn: {
+    backgroundColor: colors.coral,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  retryText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   empty: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyTitle: {

@@ -34,22 +34,64 @@ import {
 import { ApiError } from '../api/client';
 import { getCurrentUser } from '../api/user';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../i18n/I18nContext';
 import { colors } from '../theme/colors';
 
 type AdminSection = 'overview' | 'users' | 'moderation' | 'safety' | 'content';
 type CurrentUser = { id: number; username: string; email: string; role: string; is_active: boolean };
 
-const sectionLabels: Array<{ key: AdminSection; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { key: 'overview', label: 'Overview', icon: 'analytics-outline' },
-  { key: 'users', label: 'Users', icon: 'people-outline' },
-  { key: 'moderation', label: 'Moderation', icon: 'shield-checkmark-outline' },
-  { key: 'safety', label: 'Safety', icon: 'warning-outline' },
-  { key: 'content', label: 'Content', icon: 'create-outline' },
+const sectionLabels: Array<{ key: AdminSection; labelKey: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: 'overview', labelKey: 'adminOverview', icon: 'analytics-outline' },
+  { key: 'users', labelKey: 'adminUsers', icon: 'people-outline' },
+  { key: 'moderation', labelKey: 'adminModeration', icon: 'shield-checkmark-outline' },
+  { key: 'safety', labelKey: 'adminSafety', icon: 'warning-outline' },
+  { key: 'content', labelKey: 'adminContent', icon: 'create-outline' },
 ];
+
+const MODERATION_STATUS_ORDER: Record<string, number> = {
+  pending_review: 0,
+  visible: 1,
+  hidden: 2,
+};
+
+function moderationStatusLabel(status: string, t: (key: string) => string) {
+  if (status === 'pending_review') return t('pendingReview');
+  if (status === 'visible') return t('visible');
+  if (status === 'hidden') return t('hidden');
+  return status.replace(/_/g, ' ');
+}
+
+function adminRoleLabel(role: string, t: (key: string) => string) {
+  if (role === 'admin') return t('adminRoleAdmin');
+  if (role === 'moderator') return t('adminRoleModerator');
+  if (role === 'user') return t('adminRoleUser');
+  return role;
+}
+
+function adminContentTypeLabel(contentType: string, t: (key: string) => string) {
+  if (contentType === 'motivational_prompt') return t('adminContentTypeMotivationalPrompt');
+  return contentType.replace(/_/g, ' ');
+}
+
+function sortModerationItems<T extends { moderation_status: string; updated_at: string }>(items: T[]) {
+  return [...items].sort((a, b) => {
+    const aOrder = MODERATION_STATUS_ORDER[a.moderation_status] ?? 99;
+    const bOrder = MODERATION_STATUS_ORDER[b.moderation_status] ?? 99;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
+}
 
 function shortDate(iso?: string | null) {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+
+function moderationStatusStyle(status: string) {
+  if (status === 'pending_review') return styles.statusPending;
+  if (status === 'hidden') return styles.statusHidden;
+  return styles.statusActive;
 }
 
 function StatTile({ label, value, icon, tone = 'neutral' }: {
@@ -70,10 +112,11 @@ function StatTile({ label, value, icon, tone = 'neutral' }: {
   );
 }
 
-function SectionTabs({ active, onChange, isAdmin }: {
+function SectionTabs({ active, onChange, isAdmin, t }: {
   active: AdminSection;
   onChange: (section: AdminSection) => void;
   isAdmin: boolean;
+  t: (key: string) => string;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
@@ -88,7 +131,7 @@ function SectionTabs({ active, onChange, isAdmin }: {
               onPress={() => onChange(item.key)}
             >
               <Ionicons name={item.icon} size={15} color={selected ? '#fff' : colors.textMuted} />
-              <Text style={[styles.tabText, selected && styles.tabTextActive]}>{item.label}</Text>
+              <Text style={[styles.tabText, selected && styles.tabTextActive]}>{t(item.labelKey)}</Text>
             </Pressable>
           );
         })}
@@ -96,13 +139,13 @@ function SectionTabs({ active, onChange, isAdmin }: {
   );
 }
 
-function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+function ErrorCard({ message, onRetry, t }: { message: string; onRetry: () => void; t: (key: string) => string }) {
   return (
     <View style={styles.errorCard}>
-      <Text style={styles.errorTitle}>Could not load admin data</Text>
+      <Text style={styles.errorTitle}>{t('adminCouldNotLoadData')}</Text>
       <Text style={styles.errorText}>{message}</Text>
       <Pressable style={styles.retryButton} onPress={onRetry}>
-        <Text style={styles.retryText}>Retry</Text>
+        <Text style={styles.retryText}>{t('retry')}</Text>
       </Pressable>
     </View>
   );
@@ -110,6 +153,7 @@ function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void 
 
 export function AdminPanelScreen() {
   const { signOut } = useAuth();
+  const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [activeSection, setActiveSection] = useState<AdminSection>('overview');
   const [loading, setLoading] = useState(true);
@@ -154,23 +198,23 @@ export function AdminPanelScreen() {
         setRisks(riskItems);
         setActiveSection((section) => (section === 'moderation' || section === 'safety' ? section : 'moderation'));
       } else {
-        setError('This screen is available only for admin or moderator accounts.');
+        setError(t('adminOnly'));
       }
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
         if (e.status === 401) {
-          await signOut();
+          await signOut("sessionExpired");
           return;
         }
-        setError(e.message || 'Insufficient permissions.');
+        setError(e.message || t('adminInsufficientPermissions'));
       } else {
-        setError(e instanceof ApiError ? e.message : 'Could not load admin panel.');
+        setError(e instanceof ApiError ? e.message : t('adminCouldNotLoadPanel'));
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [signOut]);
+  }, [signOut, t]);
 
   useEffect(() => {
     void load();
@@ -182,8 +226,8 @@ export function AdminPanelScreen() {
   };
 
   const visibleUsers = useMemo(() => users.slice(0, 8), [users]);
-  const visiblePosts = useMemo(() => posts.slice(0, 5), [posts]);
-  const visibleComments = useMemo(() => comments.slice(0, 5), [comments]);
+  const visiblePosts = useMemo(() => sortModerationItems(posts).slice(0, 20), [posts]);
+  const visibleComments = useMemo(() => sortModerationItems(comments).slice(0, 20), [comments]);
   const visibleRisks = useMemo(() => risks.slice(0, 8), [risks]);
   const visibleContent = useMemo(() => content.slice(0, 6), [content]);
 
@@ -192,9 +236,9 @@ export function AdminPanelScreen() {
     try {
       await action();
       await load();
-      Alert.alert('Done', successMessage);
+      Alert.alert(t('adminDone'), successMessage);
     } catch (e) {
-      Alert.alert('Action failed', e instanceof ApiError ? e.message : 'Please try again.');
+      Alert.alert(t('adminActionFailed'), e instanceof ApiError ? e.message : t('pleaseTryAgain'));
     } finally {
       setActionLoading(false);
     }
@@ -202,16 +246,16 @@ export function AdminPanelScreen() {
 
   const handleToggleUser = (user: AdminUserSummary) => {
     Alert.alert(
-      user.is_active ? 'Deactivate user?' : 'Activate user?',
-      `${user.username} will ${user.is_active ? 'lose access to the app' : 'be able to log in again'}.`,
+      user.is_active ? t('adminDeactivateUserTitle') : t('adminActivateUserTitle'),
+      t('adminUserAccessChange', { username: user.username, action: user.is_active ? t('adminLoseAccess') : t('adminRegainAccess') }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: user.is_active ? 'Deactivate' : 'Activate',
+          text: user.is_active ? t('adminDeactivate') : t('adminActivate'),
           style: user.is_active ? 'destructive' : 'default',
           onPress: () => runAction(
             () => updateAdminUserStatus(user.id, !user.is_active),
-            `User ${user.is_active ? 'deactivated' : 'activated'}.`
+            user.is_active ? t('adminUserDeactivated') : t('adminUserActivated')
           ),
         },
       ]
@@ -220,40 +264,47 @@ export function AdminPanelScreen() {
 
   const handlePromoteUser = (user: AdminUserSummary) => {
     const nextRole = user.role === 'admin' ? 'user' : user.role === 'moderator' ? 'admin' : 'moderator';
-    Alert.alert('Change role?', `Set ${user.username} role to ${nextRole}?`, [
-      { text: 'Cancel', style: 'cancel' },
+    const nextRoleLabel = adminRoleLabel(nextRole, t);
+    Alert.alert(t('adminChangeRoleTitle'), t('adminSetRoleQuestion', { username: user.username, role: nextRoleLabel }), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: `Set ${nextRole}`,
-        onPress: () => runAction(() => updateAdminUserRole(user.id, nextRole), `Role changed to ${nextRole}.`),
+        text: t('adminSetRole', { role: nextRoleLabel }),
+        onPress: () => runAction(() => updateAdminUserRole(user.id, nextRole), t('adminRoleChanged', { role: nextRoleLabel })),
       },
     ]);
   };
 
-  const handleModeratePost = (post: AdminCommunityPostModeration) => {
-    const nextStatus = post.moderation_status === 'hidden' ? 'visible' : 'hidden';
+  const handleModeratePost = (
+    post: AdminCommunityPostModeration,
+    nextStatus?: 'visible' | 'hidden'
+  ) => {
+    const status = nextStatus ?? (post.moderation_status === 'hidden' ? 'visible' : 'hidden');
     runAction(
-      () => moderatePost(post.id, nextStatus, nextStatus === 'hidden' ? 'Hidden from mobile admin panel' : null),
-      `Post marked as ${nextStatus}.`
+      () => moderatePost(post.id, status, status === 'hidden' ? t('adminHiddenReason') : null),
+      t('adminPostMarked', { status: moderationStatusLabel(status, t) })
     );
   };
 
-  const handleModerateComment = (comment: AdminCommunityCommentModeration) => {
-    const nextStatus = comment.moderation_status === 'hidden' ? 'visible' : 'hidden';
+  const handleModerateComment = (
+    comment: AdminCommunityCommentModeration,
+    nextStatus?: 'visible' | 'hidden'
+  ) => {
+    const status = nextStatus ?? (comment.moderation_status === 'hidden' ? 'visible' : 'hidden');
     runAction(
-      () => moderateComment(comment.id, nextStatus, nextStatus === 'hidden' ? 'Hidden from mobile admin panel' : null),
-      `Comment marked as ${nextStatus}.`
+      () => moderateComment(comment.id, status, status === 'hidden' ? t('adminHiddenReason') : null),
+      t('adminCommentMarked', { status: moderationStatusLabel(status, t) })
     );
   };
 
   const handleCreatePrompt = () => runAction(
     () => createAdminContent({
       content_type: 'motivational_prompt',
-      title: 'Daily gentle reflection',
-      body: 'Take a slow breath and write one honest sentence about what you need today.',
+      title: t('adminDefaultPromptTitle'),
+      body: t('adminDefaultPromptBody'),
       content_metadata: { source: 'mobile-admin', language: 'en' },
       is_active: true,
     }),
-    'Motivational prompt created.'
+    t('adminPromptCreated')
   );
 
   const handleCsvPreview = async () => {
@@ -262,7 +313,7 @@ export function AdminPanelScreen() {
       const csv = await getAdminSummaryCsv();
       setCsvPreview(csv.split('\n').slice(0, 8).join('\n'));
     } catch (e) {
-      Alert.alert('CSV error', e instanceof ApiError ? e.message : 'Could not load CSV report.');
+      Alert.alert(t('adminCsvError'), e instanceof ApiError ? e.message : t('adminCouldNotLoadCsv'));
     } finally {
       setActionLoading(false);
     }
@@ -271,24 +322,24 @@ export function AdminPanelScreen() {
   const renderOverview = () => (
     <View style={styles.sectionBlock}>
       <View style={styles.grid}>
-        <StatTile label="Total users" value={analytics?.total_users ?? '—'} icon="people-outline" />
-        <StatTile label="Active users" value={analytics?.active_users ?? '—'} icon="pulse-outline" tone="success" />
-        <StatTile label="Journal entries" value={analytics?.total_journal_entries ?? '—'} icon="journal-outline" />
-        <StatTile label="AI chats" value={analytics?.total_ai_chat_sessions ?? '—'} icon="chatbubbles-outline" />
-        <StatTile label="AI quizzes" value={analytics?.total_ai_quizzes ?? '—'} icon="help-circle-outline" />
-        <StatTile label="Community posts" value={analytics?.total_community_posts ?? '—'} icon="people-circle-outline" />
+        <StatTile label={t('adminTotalUsers')} value={analytics?.total_users ?? '—'} icon="people-outline" />
+        <StatTile label={t('adminActiveUsers')} value={analytics?.active_users ?? '—'} icon="pulse-outline" tone="success" />
+        <StatTile label={t('adminJournalEntries')} value={analytics?.total_journal_entries ?? '—'} icon="journal-outline" />
+        <StatTile label={t('adminAiChats')} value={analytics?.total_ai_chat_sessions ?? '—'} icon="chatbubbles-outline" />
+        <StatTile label={t('adminAiQuizzes')} value={analytics?.total_ai_quizzes ?? '—'} icon="help-circle-outline" />
+        <StatTile label={t('adminCommunityPosts')} value={analytics?.total_community_posts ?? '—'} icon="people-circle-outline" />
       </View>
 
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>Most common moods</Text>
+          <Text style={styles.cardTitle}>{t('adminMostCommonMoods')}</Text>
           <Ionicons name="stats-chart-outline" size={18} color={colors.coral} />
         </View>
         {(analytics?.most_common_moods?.length ?? 0) === 0 ? (
-          <Text style={styles.emptyText}>No mood data yet.</Text>
+          <Text style={styles.emptyText}>{t('adminNoMoodData')}</Text>
         ) : analytics?.most_common_moods.map((mood) => (
           <View style={styles.metricRow} key={mood.mood_score}>
-            <Text style={styles.metricLabel}>Mood {mood.mood_score}/10</Text>
+            <Text style={styles.metricLabel}>{t('adminMoodValue', { score: mood.mood_score })}</Text>
             <Text style={styles.metricValue}>{mood.count}</Text>
           </View>
         ))}
@@ -296,11 +347,11 @@ export function AdminPanelScreen() {
 
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardTitle}>Top emotions</Text>
+          <Text style={styles.cardTitle}>{t('adminTopEmotions')}</Text>
           <Ionicons name="heart-outline" size={18} color={colors.coral} />
         </View>
         {(analytics?.most_common_emotions?.length ?? 0) === 0 ? (
-          <Text style={styles.emptyText}>No analyzed emotions yet.</Text>
+          <Text style={styles.emptyText}>{t('adminNoEmotions')}</Text>
         ) : analytics?.most_common_emotions.map((emotion) => (
           <View style={styles.metricRow} key={emotion.emotion}>
             <Text style={styles.metricLabel}>{emotion.emotion}</Text>
@@ -311,7 +362,7 @@ export function AdminPanelScreen() {
 
       <Pressable style={styles.secondaryButton} onPress={handleCsvPreview} disabled={actionLoading}>
         <Ionicons name="download-outline" size={18} color={colors.coral} />
-        <Text style={styles.secondaryButtonText}>Preview CSV report</Text>
+        <Text style={styles.secondaryButtonText}>{t('adminPreviewCsv')}</Text>
       </Pressable>
       {csvPreview ? <Text style={styles.csvPreview}>{csvPreview}</Text> : null}
     </View>
@@ -319,7 +370,7 @@ export function AdminPanelScreen() {
 
   const renderUsers = () => (
     <View style={styles.sectionBlock}>
-      <Text style={styles.sectionTitle}>Users and activity</Text>
+      <Text style={styles.sectionTitle}>{t('adminUsersActivity')}</Text>
       {visibleUsers.map((user) => (
         <View style={styles.userCard} key={user.id}>
           <View style={styles.rowBetween}>
@@ -328,21 +379,21 @@ export function AdminPanelScreen() {
               <Text style={styles.itemSubtitle}>{user.email}</Text>
             </View>
             <View style={[styles.statusPill, user.is_active ? styles.statusActive : styles.statusHidden]}>
-              <Text style={styles.statusText}>{user.is_active ? 'active' : 'blocked'}</Text>
+              <Text style={styles.statusText}>{user.is_active ? t('adminActive') : t('adminBlocked')}</Text>
             </View>
           </View>
-          <Text style={styles.itemMeta}>Role: {user.role} · Joined {shortDate(user.created_at)}</Text>
+          <Text style={styles.itemMeta}>{t('adminRoleJoined', { role: adminRoleLabel(user.role, t), date: shortDate(user.created_at) })}</Text>
           <View style={styles.countRow}>
-            <Text style={styles.countText}>Journal {user.journal_entries_count}</Text>
-            <Text style={styles.countText}>Chats {user.ai_chat_sessions_count}</Text>
-            <Text style={styles.countText}>Quizzes {user.ai_quiz_sessions_count}</Text>
+            <Text style={styles.countText}>{t('adminJournalCount', { count: user.journal_entries_count })}</Text>
+            <Text style={styles.countText}>{t('adminChatsCount', { count: user.ai_chat_sessions_count })}</Text>
+            <Text style={styles.countText}>{t('adminQuizzesCount', { count: user.ai_quiz_sessions_count })}</Text>
           </View>
           <View style={styles.actionRow}>
             <Pressable style={styles.smallButton} onPress={() => handleToggleUser(user)} disabled={actionLoading}>
-              <Text style={styles.smallButtonText}>{user.is_active ? 'Block' : 'Activate'}</Text>
+              <Text style={styles.smallButtonText}>{user.is_active ? t('adminBlock') : t('adminActivate')}</Text>
             </Pressable>
             <Pressable style={styles.smallButtonGhost} onPress={() => handlePromoteUser(user)} disabled={actionLoading}>
-              <Text style={styles.smallButtonGhostText}>Change role</Text>
+              <Text style={styles.smallButtonGhostText}>{t('adminChangeRole')}</Text>
             </Pressable>
           </View>
         </View>
@@ -352,9 +403,9 @@ export function AdminPanelScreen() {
 
   const renderModeration = () => (
     <View style={styles.sectionBlock}>
-      <Text style={styles.sectionTitle}>Community moderation</Text>
-      <Text style={styles.sectionHint}>Posts</Text>
-      {visiblePosts.length === 0 ? <Text style={styles.emptyText}>No posts to moderate.</Text> : null}
+      <Text style={styles.sectionTitle}>{t('adminCommunityModeration')}</Text>
+      <Text style={styles.sectionHint}>{t('adminPosts')}</Text>
+      {visiblePosts.length === 0 ? <Text style={styles.emptyText}>{t('adminNoPostsModerate')}</Text> : null}
       {visiblePosts.map((post) => (
         <View style={styles.moderationCard} key={post.id}>
           <View style={styles.rowBetween}>
@@ -363,28 +414,58 @@ export function AdminPanelScreen() {
           </View>
           <Text style={styles.contentText} numberOfLines={3}>{post.content}</Text>
           <View style={styles.rowBetween}>
-            <Text style={styles.itemMeta}>Status: {post.moderation_status}</Text>
-            <Pressable style={styles.smallButton} onPress={() => handleModeratePost(post)} disabled={actionLoading}>
-              <Text style={styles.smallButtonText}>{post.moderation_status === 'hidden' ? 'Show' : 'Hide'}</Text>
-            </Pressable>
+            <View style={[styles.statusPill, moderationStatusStyle(post.moderation_status)]}>
+              <Text style={styles.statusText}>{moderationStatusLabel(post.moderation_status, t)}</Text>
+            </View>
+            <View style={styles.actionRowCompact}>
+              {post.moderation_status === 'pending_review' ? (
+                <Pressable style={styles.smallButtonGhost} onPress={() => handleModeratePost(post, 'hidden')} disabled={actionLoading}>
+                  <Text style={styles.smallButtonGhostText}>{t('adminHide')}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.smallButton}
+                onPress={() => handleModeratePost(post, post.moderation_status === 'pending_review' ? 'visible' : undefined)}
+                disabled={actionLoading}
+              >
+                <Text style={styles.smallButtonText}>
+                  {post.moderation_status === 'pending_review' ? t('adminApprove') : post.moderation_status === 'hidden' ? t('adminShow') : t('adminHide')}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       ))}
 
-      <Text style={styles.sectionHint}>Comments</Text>
-      {visibleComments.length === 0 ? <Text style={styles.emptyText}>No comments to moderate.</Text> : null}
+      <Text style={styles.sectionHint}>{t('adminComments')}</Text>
+      {visibleComments.length === 0 ? <Text style={styles.emptyText}>{t('adminNoCommentsModerate')}</Text> : null}
       {visibleComments.map((comment) => (
         <View style={styles.moderationCard} key={comment.id}>
           <View style={styles.rowBetween}>
             <Text style={styles.itemTitle}>@{comment.username}</Text>
-            <Text style={styles.itemMeta}>Post #{comment.post_id}</Text>
+            <Text style={styles.itemMeta}>{t('adminPostNumber', { id: comment.post_id })}</Text>
           </View>
           <Text style={styles.contentText} numberOfLines={3}>{comment.content}</Text>
           <View style={styles.rowBetween}>
-            <Text style={styles.itemMeta}>Status: {comment.moderation_status}</Text>
-            <Pressable style={styles.smallButton} onPress={() => handleModerateComment(comment)} disabled={actionLoading}>
-              <Text style={styles.smallButtonText}>{comment.moderation_status === 'hidden' ? 'Show' : 'Hide'}</Text>
-            </Pressable>
+            <View style={[styles.statusPill, moderationStatusStyle(comment.moderation_status)]}>
+              <Text style={styles.statusText}>{moderationStatusLabel(comment.moderation_status, t)}</Text>
+            </View>
+            <View style={styles.actionRowCompact}>
+              {comment.moderation_status === 'pending_review' ? (
+                <Pressable style={styles.smallButtonGhost} onPress={() => handleModerateComment(comment, 'hidden')} disabled={actionLoading}>
+                  <Text style={styles.smallButtonGhostText}>{t('adminHide')}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.smallButton}
+                onPress={() => handleModerateComment(comment, comment.moderation_status === 'pending_review' ? 'visible' : undefined)}
+                disabled={actionLoading}
+              >
+                <Text style={styles.smallButtonText}>
+                  {comment.moderation_status === 'pending_review' ? t('adminApprove') : comment.moderation_status === 'hidden' ? t('adminShow') : t('adminHide')}
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       ))}
@@ -393,17 +474,17 @@ export function AdminPanelScreen() {
 
   const renderSafety = () => (
     <View style={styles.sectionBlock}>
-      <Text style={styles.sectionTitle}>Safety signals</Text>
-      {visibleRisks.length === 0 ? <Text style={styles.emptyText}>No risk keyword matches found.</Text> : null}
+      <Text style={styles.sectionTitle}>{t('adminSafetySignals')}</Text>
+      {visibleRisks.length === 0 ? <Text style={styles.emptyText}>{t('adminNoRisks')}</Text> : null}
       {visibleRisks.map((risk) => (
         <View style={styles.riskCard} key={`${risk.source}-${risk.id}`}>
           <View style={styles.rowBetween}>
-            <Text style={styles.itemTitle}>{risk.source.replace('_', ' ')}</Text>
+            <Text style={styles.itemTitle}>{risk.source === 'journal_entry' ? t('adminJournalEntry') : risk.source === 'community_post' ? t('adminCommunityPost') : risk.source.replace('_', ' ')}</Text>
             <Text style={styles.itemMeta}>{shortDate(risk.created_at)}</Text>
           </View>
-          <Text style={styles.itemSubtitle}>User: {risk.username ?? `#${risk.user_id ?? 'unknown'}`}</Text>
+          <Text style={styles.itemSubtitle}>{t('adminUserLabel', { user: risk.username ?? `#${risk.user_id ?? t('adminUnknownUser')}` })}</Text>
           <Text style={styles.contentText} numberOfLines={4}>{risk.content}</Text>
-          <Text style={styles.keywordText}>Matched: {risk.matched_keywords.join(', ')}</Text>
+          <Text style={styles.keywordText}>{t('adminMatched', { keywords: risk.matched_keywords.join(', ') })}</Text>
         </View>
       ))}
     </View>
@@ -413,23 +494,23 @@ export function AdminPanelScreen() {
     <View style={styles.sectionBlock}>
       <View style={styles.rowBetween}>
         <View>
-          <Text style={styles.sectionTitle}>Managed content</Text>
-          <Text style={styles.itemSubtitle}>Prompts, onboarding tips, quiz templates</Text>
+          <Text style={styles.sectionTitle}>{t('adminManagedContent')}</Text>
+          <Text style={styles.itemSubtitle}>{t('adminManagedContentSub')}</Text>
         </View>
         <Pressable style={styles.iconButton} onPress={handleCreatePrompt} disabled={actionLoading}>
           <Ionicons name="add" size={22} color="#fff" />
         </Pressable>
       </View>
-      {visibleContent.length === 0 ? <Text style={styles.emptyText}>No content items yet. Tap + to create a prompt.</Text> : null}
+      {visibleContent.length === 0 ? <Text style={styles.emptyText}>{t('adminNoContent')}</Text> : null}
       {visibleContent.map((item) => (
         <View style={styles.contentCard} key={item.id}>
           <View style={styles.rowBetween}>
             <Text style={styles.itemTitle}>{item.title}</Text>
             <View style={[styles.statusPill, item.is_active ? styles.statusActive : styles.statusHidden]}>
-              <Text style={styles.statusText}>{item.is_active ? 'active' : 'off'}</Text>
+              <Text style={styles.statusText}>{item.is_active ? t('adminActive') : t('adminOff')}</Text>
             </View>
           </View>
-          <Text style={styles.itemMeta}>{item.content_type}</Text>
+          <Text style={styles.itemMeta}>{adminContentTypeLabel(item.content_type, t)}</Text>
           <Text style={styles.contentText} numberOfLines={3}>{item.body}</Text>
         </View>
       ))}
@@ -451,18 +532,18 @@ export function AdminPanelScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.eyebrow}>SelfMind Pro</Text>
-          <Text style={styles.title}>Admin panel</Text>
+          <Text style={styles.title}>{t('adminPanel')}</Text>
         </View>
         <View style={styles.roleBadge}>
           <Ionicons name="person-circle-outline" size={16} color={colors.coral} />
-          <Text style={styles.roleText}>{currentUser?.role ?? 'loading'}</Text>
+          <Text style={styles.roleText}>{currentUser?.role ?? t('loading')}</Text>
         </View>
       </View>
 
       {loading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.coral} />
-          <Text style={styles.loadingText}>Loading system dashboard…</Text>
+          <Text style={styles.loadingText}>{t('adminLoadingDashboard')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -470,10 +551,10 @@ export function AdminPanelScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {error ? <ErrorCard message={error} onRetry={load} /> : null}
+          {error ? <ErrorCard message={error} onRetry={load} t={t} /> : null}
           {isModerator ? (
             <>
-              <SectionTabs active={activeSection} onChange={setActiveSection} isAdmin={isAdmin} />
+              <SectionTabs active={activeSection} onChange={setActiveSection} isAdmin={isAdmin} t={t} />
               {renderActiveSection()}
             </>
           ) : null}
@@ -571,12 +652,14 @@ const styles = StyleSheet.create({
   countRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   countText: { backgroundColor: '#F5F7FA', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, color: colors.textMuted, fontSize: 11, fontWeight: '900' },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  actionRowCompact: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   smallButton: { backgroundColor: colors.coral, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   smallButtonText: { color: '#fff', fontWeight: '900', fontSize: 12 },
   smallButtonGhost: { backgroundColor: '#FFF3F1', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   smallButtonGhostText: { color: colors.coral, fontWeight: '900', fontSize: 12 },
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   statusActive: { backgroundColor: '#DCFCE7' },
+  statusPending: { backgroundColor: '#FEF3C7' },
   statusHidden: { backgroundColor: '#FEE2E2' },
   statusText: { fontSize: 11, fontWeight: '900', color: colors.text },
   secondaryButton: {

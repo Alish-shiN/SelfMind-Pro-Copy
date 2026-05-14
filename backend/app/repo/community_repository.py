@@ -1,6 +1,6 @@
 from collections import Counter
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.community_comment import CommunityComment
@@ -42,10 +42,26 @@ class CommunityRepository:
         support_space: str | None = None,
         topic_tag: str | None = None,
     ) -> list[CommunityPost]:
+        reported_post_ids = (
+            self.db.query(CommunityReport.target_id)
+            .filter(
+                CommunityReport.target_type == "post",
+                CommunityReport.status == "open",
+            )
+            .subquery()
+        )
         query = (
             self.db.query(CommunityPost)
             .options(joinedload(CommunityPost.user), joinedload(CommunityPost.comments))
-            .filter(CommunityPost.moderation_status == "visible")
+            .filter(
+                or_(
+                    CommunityPost.moderation_status == "visible",
+                    and_(
+                        CommunityPost.moderation_status == "pending_review",
+                        CommunityPost.id.in_(reported_post_ids),
+                    ),
+                )
+            )
         )
         if support_space:
             query = query.filter(CommunityPost.support_space == support_space)
@@ -92,12 +108,26 @@ class CommunityRepository:
         return comment
 
     def get_comments_by_post_id(self, post_id: int) -> list[CommunityComment]:
+        reported_comment_ids = (
+            self.db.query(CommunityReport.target_id)
+            .filter(
+                CommunityReport.target_type == "comment",
+                CommunityReport.status == "open",
+            )
+            .subquery()
+        )
         return (
             self.db.query(CommunityComment)
             .options(joinedload(CommunityComment.user))
             .filter(
                 CommunityComment.post_id == post_id,
-                CommunityComment.moderation_status == "visible",
+                or_(
+                    CommunityComment.moderation_status == "visible",
+                    and_(
+                        CommunityComment.moderation_status == "pending_review",
+                        CommunityComment.id.in_(reported_comment_ids),
+                    ),
+                ),
             )
             .order_by(CommunityComment.created_at.asc())
             .all()
