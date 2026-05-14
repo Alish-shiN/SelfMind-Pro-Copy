@@ -210,6 +210,32 @@ function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | n
   );
 }
 
+function supportSpaceTitle(space: SupportSpace | undefined, t: (key: string) => string, fallback?: string) {
+  if (!space) return fallback ?? t("generalSupport");
+  return t(`${space.key}Title`);
+}
+
+function supportSpaceDescription(space: SupportSpace, t: (key: string) => string) {
+  return t(`${space.key}Desc`);
+}
+
+function guidelineKeys(guidelines: Guidelines | null) {
+  return guidelines?.principles?.length
+    ? guidelines.principles.map((_, index) => `communityRule${index + 1}`)
+    : ["communityRule1", "communityRule2", "communityRule3", "communityRule4", "communityRule5"];
+}
+
+function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | null) {
+  if (!currentUser || author.id === null) return false;
+  return (
+    author.id === currentUser.id ||
+    currentUser.role === "admin" ||
+    currentUser.role === "moderator"
+  );
+}
+
+
+
 function parseTags(raw: string) {
   return raw
     .split(",")
