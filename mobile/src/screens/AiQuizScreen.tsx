@@ -74,7 +74,7 @@ export function AiQuizScreen({ navigation }: Props) {
   const handleAuthError = useCallback(
     async (e: unknown, fallback: string) => {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         return true;
       }
       setError(e instanceof ApiError ? e.message : fallback);

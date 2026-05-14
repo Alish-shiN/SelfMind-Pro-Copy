@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Alert } from 'react-native';
 import { clearToken, getToken, setToken } from '../lib/storage';
 import { ApiError } from '../api/client';
 import { getDashboardHome } from '../api/dashboard';
@@ -7,7 +8,7 @@ type AuthContextValue = {
   token: string | null;
   ready: boolean;
   signIn: (accessToken: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  signOut: (reason?: 'sessionExpired') => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -52,9 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTokenState(accessToken);
   }, []);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (reason?: 'sessionExpired') => {
     await clearToken();
     setTokenState(null);
+    if (reason === 'sessionExpired') {
+      Alert.alert('Session expired', 'Please sign in again to continue.');
+    }
   }, []);
 
   const value = useMemo(

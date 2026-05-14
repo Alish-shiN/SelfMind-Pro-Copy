@@ -340,7 +340,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
       void setAchievementWeeklyMoodReview();
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         setError(null);
         return;
       }

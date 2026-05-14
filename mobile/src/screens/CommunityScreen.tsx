@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiError, apiFetch } from "../api/client";
-import { getCurrentUser } from "../api/user";
+import { getCurrentUser, getUserPreferences } from "../api/user";
 import type { UserResponse } from "../api/auth";
 import { colors } from "../theme/colors";
 import { useTranslation } from "../i18n/I18nContext";
@@ -293,18 +293,24 @@ function NewPostModal({
   spaces,
   onClose,
   onCreated,
+  defaultAnonymous,
 }: {
   visible: boolean;
   spaces: SupportSpace[];
   onClose: () => void;
   onCreated: () => void;
+  defaultAnonymous: boolean;
 }) {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
   const [space, setSpace] = useState<SupportSpaceKey | string>("general");
-  const [isAnon, setIsAnon] = useState(false);
+  const [isAnon, setIsAnon] = useState(defaultAnonymous);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (visible) setIsAnon(defaultAnonymous);
+  }, [defaultAnonymous, visible]);
 
   const submit = async () => {
     if (!content.trim()) {
@@ -317,7 +323,7 @@ function NewPostModal({
       setContent("");
       setTags("");
       setSpace("general");
-      setIsAnon(false);
+      setIsAnon(defaultAnonymous);
       onCreated();
     } catch (e: any) {
       Alert.alert(t("error"), e?.message ?? t("couldNotPost"));
@@ -497,18 +503,24 @@ function PostCard({
 function PostDetailModal({
   postId,
   currentUser,
+  defaultAnonymous,
   onClose,
 }: {
   postId: number;
   currentUser: UserResponse | null;
+  defaultAnonymous: boolean;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
-  const [isAnon, setIsAnon] = useState(false);
+  const [isAnon, setIsAnon] = useState(defaultAnonymous);
   const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    setIsAnon(defaultAnonymous);
+  }, [defaultAnonymous]);
 
   const load = useCallback(async () => {
     try {
@@ -670,6 +682,7 @@ export function CommunityScreen() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [guidelines, setGuidelines] = useState<Guidelines | null>(null);
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
+  const [defaultAnonymous, setDefaultAnonymous] = useState(false);
   const [selectedSpace, setSelectedSpace] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -686,14 +699,18 @@ export function CommunityScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [guideData, feedData, userData] = await Promise.all([
+      const [guideData, feedData, userData, prefsData] = await Promise.all([
         getGuidelines(),
         getFeed(selectedSpace),
         getCurrentUser().catch(() => null),
+        getUserPreferences().catch(() => null),
       ]);
       setGuidelines(guideData);
       setPosts(feedData);
       setCurrentUser(userData);
+      if (prefsData) {
+        setDefaultAnonymous(prefsData.privacy_preferences.anonymous_community_default);
+      }
     } catch (e) {
       const message = e instanceof ApiError ? e.message : t("couldNotLoadDashboard");
       setError(message);
@@ -858,6 +875,7 @@ export function CommunityScreen() {
           setShowNew(false);
           load();
         }}
+        defaultAnonymous={defaultAnonymous}
       />
       <GuidelinesModal
         visible={showGuidelines}
@@ -868,6 +886,7 @@ export function CommunityScreen() {
         <PostDetailModal
           postId={selectedPostId}
           currentUser={currentUser}
+          defaultAnonymous={defaultAnonymous}
           onClose={() => {
             setSelectedPostId(null);
             load();
