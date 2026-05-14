@@ -66,6 +66,7 @@ export function HomeScreen({ navigation }: Props) {
   const moodLine = formatMoodLine(
     analysis?.emotion_label,
     analysis?.sentiment_label,
+    t,
   );
   const emoji = moodEmoji(analysis?.emotion_label, analysis?.sentiment_label);
   const advice =
