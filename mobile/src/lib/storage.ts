@@ -8,6 +8,7 @@ const ACHIEVEMENT_WEEKLY_MOOD_REVIEW_KEY =
   "selfmind:achievement_weekly_mood_review";
 const ACHIEVEMENT_WEEKLY_SUMMARY_COMPLETED_KEY =
   "selfmind:achievement_weekly_summary_completed";
+const ACHIEVEMENT_GOAL_PAUSED_KEY = "selfmind:achievement_goal_paused";
 
 export async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem(TOKEN_KEY);
@@ -73,4 +74,12 @@ export async function getAchievementWeeklySummaryCompleted(): Promise<boolean> {
 
 export async function setAchievementWeeklySummaryCompleted(): Promise<void> {
   await setBooleanFlag(ACHIEVEMENT_WEEKLY_SUMMARY_COMPLETED_KEY);
+}
+
+export async function getAchievementGoalPaused(): Promise<boolean> {
+  return getBooleanFlag(ACHIEVEMENT_GOAL_PAUSED_KEY);
+}
+
+export async function setAchievementGoalPaused(): Promise<void> {
+  await setBooleanFlag(ACHIEVEMENT_GOAL_PAUSED_KEY);
 }
