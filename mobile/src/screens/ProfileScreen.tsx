@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { colors } from "../theme/colors";
@@ -673,10 +674,32 @@ function PrivacyCenterModal({
     setExportStatus(t("preparingExport"));
     try {
       const data = await exportPersonalData(exportType);
-      setExportStatus(
-        `${t(labelKey)} ${t("exportReady").toLowerCase()}: ${Object.keys(data).join(", ")}`,
+      const baseDirectory = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+      if (!baseDirectory) {
+        throw new ApiError("Local file storage is unavailable on this device.", 0);
+      }
+
+      const fileName = `selfmind-${exportType}-export.json`;
+      const localUri = `${baseDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(
+        localUri,
+        JSON.stringify(data, null, 2),
       );
-      Alert.alert(t("exportReady"), t("exportGeneratedSensitive"));
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(localUri, {
+          mimeType: "application/json",
+          UTI: "public.json",
+          dialogTitle: t(labelKey),
+        });
+        setExportStatus(`${t(labelKey)} ${t("exportReady").toLowerCase()}: ${localUri}`);
+        Alert.alert(t("exportReady"), t("exportGeneratedSensitive"));
+      } else {
+        setExportStatus(`${t(labelKey)} ${t("exportReady").toLowerCase()}: ${localUri}`);
+        Alert.alert(t("exportReady"), `${t("exportGeneratedSensitive")}
+${localUri}`);
+      }
     } catch (e) {
       const message =
         e instanceof ApiError

@@ -15,7 +15,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { apiFetch } from "../api/client";
+import { ApiError, apiFetch } from "../api/client";
+import { getCurrentUser } from "../api/user";
+import type { UserResponse } from "../api/auth";
 import { colors } from "../theme/colors";
 import { useTranslation } from "../i18n/I18nContext";
 
@@ -180,6 +182,15 @@ function timeAgo(iso: string, t: (key: string) => string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)}${t("minutesAgoSuffix")}`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}${t("hoursAgoSuffix")}`;
   return `${Math.floor(diff / 86400)}${t("daysAgoSuffix")}`;
+}
+
+function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | null) {
+  if (!currentUser || author.id === null) return false;
+  return (
+    author.id === currentUser.id ||
+    currentUser.role === "admin" ||
+    currentUser.role === "moderator"
+  );
 }
 
 function parseTags(raw: string) {
@@ -417,6 +428,7 @@ function PostCard({
   onDelete,
   onReport,
   onReact,
+  canDelete,
 }: {
   post: CommunityPost;
   space?: SupportSpace;
@@ -424,6 +436,7 @@ function PostCard({
   onDelete: () => void;
   onReport: () => void;
   onReact: (reaction: ReactionType) => void | Promise<void>;
+  canDelete: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -471,7 +484,7 @@ function PostCard({
         <Pressable onPress={onReport} hitSlop={8}>
           <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
         </Pressable>
-        {post.author.id !== null ? (
+        {canDelete ? (
           <Pressable onPress={onDelete} hitSlop={8}>
             <Ionicons name="trash-outline" size={16} color="#D1D5DB" />
           </Pressable>
@@ -483,9 +496,11 @@ function PostCard({
 
 function PostDetailModal({
   postId,
+  currentUser,
   onClose,
 }: {
   postId: number;
+  currentUser: UserResponse | null;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -596,7 +611,7 @@ function PostDetailModal({
                     <Pressable onPress={() => confirmReportComment(comment.id)}>
                       <Text style={modalStyles.actionText}>{t("report")}</Text>
                     </Pressable>
-                    {comment.author.id !== null ? (
+                    {canDeleteContent(comment.author, currentUser) ? (
                       <Pressable
                         onPress={async () => {
                           await deleteComment(comment.id);
@@ -654,9 +669,11 @@ export function CommunityScreen() {
   const { t } = useTranslation();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [guidelines, setGuidelines] = useState<Guidelines | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [selectedSpace, setSelectedSpace] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
@@ -667,20 +684,24 @@ export function CommunityScreen() {
   );
 
   const load = useCallback(async () => {
+    setError(null);
     try {
-      const [guideData, feedData] = await Promise.all([
+      const [guideData, feedData, userData] = await Promise.all([
         getGuidelines(),
         getFeed(selectedSpace),
+        getCurrentUser().catch(() => null),
       ]);
       setGuidelines(guideData);
       setPosts(feedData);
-    } catch {
-      /* silent */
+      setCurrentUser(userData);
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : t("couldNotLoadDashboard");
+      setError(message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedSpace]);
+  }, [selectedSpace, t]);
 
   useEffect(() => {
     load();
@@ -793,7 +814,14 @@ export function CommunityScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {posts.length === 0 ? (
+          {error ? (
+            <View style={styles.errBox}>
+              <Text style={styles.errText}>{error}</Text>
+              <Pressable style={styles.retryBtn} onPress={load}>
+                <Text style={styles.retryText}>{t("retry")}</Text>
+              </Pressable>
+            </View>
+          ) : posts.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>💬</Text>
               <Text style={styles.emptyTitle}>{t("noPostsYet")}</Text>
@@ -812,6 +840,7 @@ export function CommunityScreen() {
                   await reactToPost(post.id, reaction);
                   load();
                 }}
+                canDelete={canDeleteContent(post.author, currentUser)}
               />
             ))
           )}
@@ -838,6 +867,7 @@ export function CommunityScreen() {
       {selectedPostId !== null ? (
         <PostDetailModal
           postId={selectedPostId}
+          currentUser={currentUser}
           onClose={() => {
             setSelectedPostId(null);
             load();
@@ -1142,6 +1172,21 @@ const styles = StyleSheet.create({
   spaceFilterOn: { backgroundColor: "#FFF0EE", borderColor: colors.coral },
   spaceFilterText: { color: colors.text, fontWeight: "800", fontSize: 12 },
   scroll: { paddingHorizontal: 20, paddingBottom: 100 },
+  errBox: {
+    backgroundColor: "#FFE5E5",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+  },
+  errText: { color: "#B91C1C", fontWeight: "700", marginBottom: 10 },
+  retryBtn: {
+    backgroundColor: colors.coral,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  retryText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   empty: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyTitle: {
