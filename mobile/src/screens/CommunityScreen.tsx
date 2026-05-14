@@ -210,6 +210,15 @@ function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | n
   );
 }
 
+function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | null) {
+  if (!currentUser || author.id === null) return false;
+  return (
+    author.id === currentUser.id ||
+    currentUser.role === "admin" ||
+    currentUser.role === "moderator"
+  );
+}
+
 function parseTags(raw: string) {
   return raw
     .split(",")
