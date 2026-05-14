@@ -113,11 +113,11 @@ export function getAiQuizTypes() {
   return apiFetch<AiQuizType[]>('/ai-quiz/types', { method: 'GET', auth: true });
 }
 
-export function generateAiQuiz(quiz_type = 'stress') {
+export function generateAiQuiz(quiz_type = 'stress', language = 'en') {
   return apiFetch<AiQuizGenerateResponse>('/ai-quiz/generate', {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ quiz_type }),
+    body: JSON.stringify({ quiz_type, language }),
   });
 }
 

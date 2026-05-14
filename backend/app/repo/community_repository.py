@@ -196,14 +196,27 @@ class CommunityRepository:
                 CommunityReaction.user_id == user_id,
                 CommunityReaction.target_type == target_type,
                 CommunityReaction.target_id == target_id,
-                CommunityReaction.reaction_type == reaction_type,
             )
-            .first()
+            .order_by(CommunityReaction.created_at.asc())
+            .all()
         )
-        if existing:
-            self.db.delete(existing)
+        matching = next(
+            (reaction for reaction in existing if reaction.reaction_type == reaction_type),
+            None,
+        )
+        if matching:
+            for duplicate in existing:
+                self.db.delete(duplicate)
             self.db.commit()
             return False
+
+        if existing:
+            primary = existing[0]
+            primary.reaction_type = reaction_type
+            for duplicate in existing[1:]:
+                self.db.delete(duplicate)
+            self.db.commit()
+            return True
 
         reaction = CommunityReaction(
             user_id=user_id,
@@ -236,6 +249,26 @@ class CommunityRepository:
         result = {target_id: self.empty_reactions() for target_id in target_ids}
         for target_id, reaction_type, count in rows:
             result[target_id][reaction_type] = count
+        return result
+
+
+    def get_user_reactions(
+        self, user_id: int | None, target_type: str, target_ids: list[int]
+    ) -> dict[int, list[str]]:
+        if not user_id or not target_ids:
+            return {target_id: [] for target_id in target_ids}
+        rows = (
+            self.db.query(CommunityReaction.target_id, CommunityReaction.reaction_type)
+            .filter(
+                CommunityReaction.user_id == user_id,
+                CommunityReaction.target_type == target_type,
+                CommunityReaction.target_id.in_(target_ids),
+            )
+            .all()
+        )
+        result = {target_id: [] for target_id in target_ids}
+        for target_id, reaction_type in rows:
+            result.setdefault(target_id, []).append(reaction_type)
         return result
 
     def get_report_counts(

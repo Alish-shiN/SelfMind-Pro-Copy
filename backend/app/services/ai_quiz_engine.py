@@ -48,6 +48,98 @@ QUESTION_BANK = {
 }
 
 STANDARD_OPTIONS = ["Never", "Rarely", "Sometimes", "Often", "Almost always"]
+LOCALIZED_OPTIONS = {
+    "en": STANDARD_OPTIONS,
+    "ru": ["Никогда", "Редко", "Иногда", "Часто", "Почти всегда"],
+    "kk": ["Ешқашан", "Сирек", "Кейде", "Жиі", "Әрдайым дерлік"],
+}
+QUESTION_BANK_LOCALIZED = {
+    "ru": {
+        "stress": [
+            "Как часто за последние несколько дней вы чувствовали ментальную перегрузку?",
+            "Насколько сложно было расслабиться, думая об обязанностях?",
+            "Как часто мысли возвращались к одному и тому же стрессовому вопросу?",
+            "Насколько управляемой ощущалась текущая нагрузка?",
+            "Как часто вы замечали напряжение в теле?",
+            "Насколько вас поддерживают привычки или люди рядом?",
+        ],
+        "burnout": [
+            "Как часто повседневные задачи эмоционально истощали вас?",
+            "Сколько времени на восстановление было между обязанностями?",
+            "Как часто вы чувствовали отстраненность от учебы или дел, которые обычно важны?",
+            "Насколько устойчивой была энергия в течение дня?",
+            "Насколько реалистичными казались ожидания к себе в последнее время?",
+            "Как часто вы защищали время для отдыха или приятных занятий?",
+        ],
+        "emotional_awareness": [
+            "Насколько легко было назвать то, что вы чувствуете?",
+            "Как часто вы замечали телесные сигналы, связанные с эмоциями?",
+            "Как часто вы делали паузу перед реакцией на сильное чувство?",
+            "Насколько ясно вы связываете эмоции с недавними событиями?",
+            "Как часто вы писали или говорили о своих чувствах?",
+            "Насколько комфортно вам оставаться с смешанными эмоциями?",
+        ],
+        "study_overload": [
+            "Как часто учебные задачи казались слишком сложными для организации?",
+            "Насколько ясны ваши главные приоритеты на сегодня?",
+            "Как часто вы делали короткие перерывы во время учебных блоков?",
+            "Насколько управляемыми кажутся ближайшие дедлайны?",
+            "Как часто отвлечения мешали учебе?",
+            "Насколько уверенно вы можете попросить помощи или изменить план?",
+        ],
+        "motivation": [
+            "Насколько легко было начинать важные задачи?",
+            "Как часто вы замечали маленькие победы на этой неделе?",
+            "Насколько ваши задачи связаны с чем-то значимым?",
+            "Насколько стабильными были ваши рутины в последнее время?",
+            "Как часто вы избегали задач, потому что они казались слишком большими?",
+            "Насколько вы уверены в одном достижимом следующем шаге?",
+        ],
+    },
+    "kk": {
+        "stress": [
+            "Соңғы бірнеше күнде ойыңыз шамадан тыс жүктелгенін қаншалықты жиі сездіңіз?",
+            "Міндеттеріңіз туралы ойлағанда босаңсу қаншалықты қиын болды?",
+            "Ойларыңыз бір стресс мәселесіне қаншалықты жиі қайта оралды?",
+            "Қазіргі жүктемеңіз қаншалықты басқарылатын болып сезілді?",
+            "Денеңіздегі кернеуді қаншалықты жиі байқадыңыз?",
+            "Әдеттеріңіз немесе айналаңыздағы адамдар сізді қаншалықты қолдайды?",
+        ],
+        "burnout": [
+            "Күнделікті тапсырмалардан кейін эмоциялық шаршауды қаншалықты жиі сездіңіз?",
+            "Міндеттер арасында қалпына келуге қанша уақыт болды?",
+            "Әдетте маңызды оқу немесе жұмысқа немқұрайлықты қаншалықты жиі сездіңіз?",
+            "Күні бойы энергияңыз қаншалықты тұрақты болды?",
+            "Соңғы кезде өзіңізге қоятын күтулер қаншалықты шынайы болды?",
+            "Демалысқа немесе ұнайтын істерге уақытты қаншалықты жиі қорғадыңыз?",
+        ],
+        "emotional_awareness": [
+            "Не сезіп тұрғаныңызды атау қаншалықты оңай болды?",
+            "Эмоциялармен байланысты дене белгілерін қаншалықты жиі байқадыңыз?",
+            "Күшті сезімге жауап берер алдында қаншалықты жиі кідірдіңіз?",
+            "Эмоцияларды соңғы оқиғалармен қаншалықты анық байланыстыра аласыз?",
+            "Сезімдеріңіз туралы қаншалықты жиі жаздыңыз немесе сөйлестіңіз?",
+            "Аралас эмоциялармен отыру сізге қаншалықты жайлы?",
+        ],
+        "study_overload": [
+            "Оқу тапсырмаларын ұйымдастыру тым көп болып қаншалықты жиі сезілді?",
+            "Бүгінгі негізгі басымдықтарыңыз қаншалықты анық?",
+            "Оқу блоктары кезінде қысқа үзілістерді қаншалықты жиі жасадыңыз?",
+            "Алдағы дедлайндар қаншалықты басқарылатын көрінеді?",
+            "Алаңдататын нәрселер оқуды қаншалықты жиі қиындатты?",
+            "Көмек сұрауға немесе жоспарыңызды өзгертуге қаншалықты сенімдісіз?",
+        ],
+        "motivation": [
+            "Маңызды тапсырмаларды бастау қаншалықты оңай болды?",
+            "Осы аптада шағын жетістіктерді қаншалықты жиі байқадыңыз?",
+            "Тапсырмаларыңыз мағыналы нәрсемен қаншалықты байланысты?",
+            "Соңғы кезде тәртіптеріңіз қаншалықты тұрақты болды?",
+            "Тым үлкен болып көрінгендіктен тапсырмалардан қаншалықты жиі қашқақтадыңыз?",
+            "Бір қолжетімді келесі қадамға қаншалықты сенімдісіз?",
+        ],
+    },
+}
+LANGUAGE_NAMES = {"en": "English", "ru": "Russian", "kk": "Kazakh"}
 REVERSED_PROMPTS = {
     "How manageable",
     "How supported",
@@ -66,13 +158,13 @@ REVERSED_PROMPTS = {
 
 class AIQuizEngine:
     def generate_questions(
-        self, quiz_type: str, context: dict | None = None
+        self, quiz_type: str, context: dict | None = None, language: str = "en"
     ) -> list[dict]:
         quiz_type = normalize_quiz_type(quiz_type)
         try:
-            return self._generate_questions_openai(quiz_type, context)
+            return self._generate_questions_openai(quiz_type, context, language)
         except Exception:
-            return self._fallback_questions(quiz_type)
+            return self._fallback_questions(quiz_type, language)
 
     def analyze_answers(
         self,
@@ -91,18 +183,22 @@ class AIQuizEngine:
         return self._enrich_result(quiz_type, result)
 
     def _generate_questions_openai(
-        self, quiz_type: str, context: dict | None = None
+        self, quiz_type: str, context: dict | None = None, language: str = "en"
     ) -> list[dict]:
         personalization_context = json.dumps(
             context or {}, ensure_ascii=False, default=str
         )
         config = QUIZ_TYPES[quiz_type]
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        language_name = LANGUAGE_NAMES[language_code]
+        options = LOCALIZED_OPTIONS[language_code]
 
         prompt = f"""
 You are generating an adaptive self-reflection quiz for a journaling app.
 
 Return STRICT JSON ARRAY only.
 Generate exactly 6 questions for quiz type: {quiz_type} ({config['title']}).
+Language: {language_name}. Write every question and answer option in {language_name}.
 Personalization context JSON: {personalization_context}
 
 Each item must follow:
@@ -110,7 +206,7 @@ Each item must follow:
   "question_index": 1,
   "question_text": "string",
   "answer_type": "scale",
-  "options": ["Never", "Rarely", "Sometimes", "Often", "Almost always"]
+  "options": {json.dumps(options, ensure_ascii=False)}
 }}
 
 Rules:
@@ -119,6 +215,7 @@ Rules:
 - No diagnosis and no claims that the app detects medical conditions
 - All questions must be suitable for university-age users
 - Use only answer_type = "scale"
+- Use exactly these localized options for every question: {json.dumps(options, ensure_ascii=False)}
 """
 
         response = client.responses.create(
@@ -188,8 +285,12 @@ Assessment data:
             ),
         }
 
-    def _fallback_questions(self, quiz_type: str) -> list[dict]:
-        prompts = QUESTION_BANK.get(quiz_type, QUESTION_BANK["stress"])
+    def _fallback_questions(self, quiz_type: str, language: str = "en") -> list[dict]:
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        prompts = QUESTION_BANK_LOCALIZED.get(language_code, {}).get(
+            quiz_type, QUESTION_BANK.get(quiz_type, QUESTION_BANK["stress"])
+        )
+        options = LOCALIZED_OPTIONS[language_code]
         questions = []
         for index, prompt in enumerate(prompts, start=1):
             questions.append(
@@ -197,7 +298,7 @@ Assessment data:
                     "question_index": index,
                     "question_text": prompt,
                     "answer_type": "scale",
-                    "options": STANDARD_OPTIONS,
+                    "options": options,
                 }
             )
         return questions

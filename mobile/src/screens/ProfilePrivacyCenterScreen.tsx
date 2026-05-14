@@ -176,8 +176,8 @@ export function ProfilePrivacyCenterScreen({ navigation }: Props) {
         <ScrollView contentContainerStyle={styles.body}>
           <View style={styles.card}>
             <Ionicons name="shield-checkmark-outline" size={24} color={colors.coral} />
-            <Text style={styles.cardTitle}>{center?.notice.title ?? t("privacyTitle")}</Text>
-            <Text style={styles.text}>{center?.notice.summary ?? t("privacySummaryFallback")}</Text>
+            <Text style={styles.cardTitle}>{t("privacyTitle")}</Text>
+            <Text style={styles.text}>{t("privacyCenterSubtitle")}</Text>
             <Text style={styles.text}>{center?.notice.emotional_data_notice ?? t("emotionalDataNotice")}</Text>
           </View>
 

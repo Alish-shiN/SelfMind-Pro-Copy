@@ -156,6 +156,51 @@ function translatedInsightTitle(value: string, t: (key: string) => string) {
   }
 }
 
+
+function translatedInsightDescription(
+  insight: MoodAnalytics["insights"][number],
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
+  const title = normalizeLabel(insight.title);
+  const description = insight.description || "";
+  if (title === "mood_baseline") {
+    if (description.includes("strong range")) return t("dashboardInsightMoodStrong");
+    if (description.includes("moderate")) return t("dashboardInsightMoodModerate");
+    return t("dashboardInsightMoodLow");
+  }
+  if (title === "mood_trend") {
+    if (description.includes("improved")) return t("dashboardInsightTrendImproved");
+    if (description.includes("declined")) return t("dashboardInsightTrendDeclined");
+    return t("dashboardInsightTrendStable");
+  }
+  if (title === "top_emotion") {
+    const match = description.match(/(.+) is the most frequent detected emotion, appearing in (\d+)%/);
+    if (match) {
+      return t("dashboardInsightTopEmotion", {
+        emotion: translatedEmotionLabel(match[1], t),
+        percent: match[2],
+      });
+    }
+  }
+  if (title === "journaling_consistency") {
+    const match = description.match(/You journaled on (\d+) of (\d+) days \((\d+)% consistency\)/);
+    if (match) {
+      return t("dashboardInsightConsistency", {
+        active: match[1],
+        total: match[2],
+        percent: match[3],
+      });
+    }
+  }
+  if (title === "mood_vs_journaling_frequency") {
+    return t("dashboardCorrelationJournalingDesc");
+  }
+  if (title === "mood_vs_quiz_severity") {
+    return t("dashboardCorrelationQuizDesc");
+  }
+  return description;
+}
+
 function translatedCorrelationStrength(value: string, t: (key: string) => string) {
   switch (normalizeLabel(value)) {
     case "strong":
@@ -760,7 +805,7 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                       {translatedInsightTitle(insight.title, t)}
                     </Text>
                     <Text style={styles.insightBulletText}>
-                      {insight.description}
+                      {translatedInsightDescription(insight, t)}
                     </Text>
                   </View>
                 </View>

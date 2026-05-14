@@ -28,6 +28,7 @@ import {
   getArchiveFavoriteIds,
   toggleArchiveFavoriteId,
 } from "../lib/archiveFavorites";
+import { translateEmotionLabel, translateSentimentLabel } from "../utils/mood";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArchiveSearch">;
 
@@ -509,10 +510,10 @@ export function ArchiveSearchScreen({ navigation, route }: Props) {
                     </Text>
                   </View>
                   {item.emotion_label ? (
-                    <Text style={styles.metaText}>{item.emotion_label}</Text>
+                    <Text style={styles.metaText}>{translateEmotionLabel(item.emotion_label, t)}</Text>
                   ) : null}
                   {item.sentiment_label ? (
-                    <Text style={styles.metaText}>{item.sentiment_label}</Text>
+                    <Text style={styles.metaText}>{translateSentimentLabel(item.sentiment_label, t)}</Text>
                   ) : null}
                   {item.tags?.slice(0, 3).map((tag) => (
                     <Text key={tag} style={styles.tagText}>

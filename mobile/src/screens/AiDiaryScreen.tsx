@@ -21,6 +21,7 @@ import { getUserPreferences } from "../api/user";
 import { colors } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 import { languageLocales, useTranslation } from "../i18n/I18nContext";
+import { translateEmotionLabel, translateSentimentLabel } from "../utils/mood";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { HomeStackParamList } from "../navigation/types";
 
@@ -797,7 +798,7 @@ function EntryDetailModal({
                 <View style={edStyles.analysisRow}>
                   <View style={edStyles.analysisPill}>
                     <Text style={edStyles.analysisPillText}>
-                      {analysis.sentiment_label}
+                      {translateSentimentLabel(analysis.sentiment_label, t)}
                     </Text>
                   </View>
                   <View
@@ -807,7 +808,7 @@ function EntryDetailModal({
                     ]}
                   >
                     <Text style={edStyles.analysisPillText}>
-                      {analysis.emotion_label}
+                      {translateEmotionLabel(analysis.emotion_label, t)}
                     </Text>
                   </View>
                 </View>
@@ -1253,7 +1254,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    bottom: 24,
+    bottom: 84,
     right: 24,
     width: 58,
     height: 58,

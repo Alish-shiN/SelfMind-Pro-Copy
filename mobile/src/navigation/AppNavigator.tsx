@@ -100,6 +100,11 @@ function MainTabsNavigator() {
       <Tab.Screen
         name="Home"
         component={HomeStackNavigator}
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            navigation.navigate("Home", { screen: "HomeMain" });
+          },
+        })}
         options={{
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />

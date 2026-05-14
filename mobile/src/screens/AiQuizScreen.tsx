@@ -152,7 +152,7 @@ export function AiQuizScreen({ navigation }: Props) {
       setResult(null);
       setAnswers({});
       try {
-        const generated = await generateAiQuiz(typeToStart);
+        const generated = await generateAiQuiz(typeToStart, language);
         setSession(generated);
         setSelectedQuizType(generated.quiz_type);
         setMode("taking");
@@ -162,7 +162,7 @@ export function AiQuizScreen({ navigation }: Props) {
         setGenerating(false);
       }
     },
-    [handleAuthError, quizTypes, selectedQuizType],
+    [handleAuthError, language, quizTypes, selectedQuizType],
   );
 
   const submit = useCallback(async () => {

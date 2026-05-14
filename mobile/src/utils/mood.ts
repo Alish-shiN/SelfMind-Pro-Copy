@@ -23,7 +23,7 @@ const SENTIMENT_LABEL_KEYS: Record<string, string> = {
   mixed: 'sentimentMixed',
 };
 
-function normalize(value?: string | null) {
+export function normalizeMoodLabel(value?: string | null) {
   return (value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
 
@@ -37,10 +37,22 @@ export function formatMoodLine(
   t?: Translator,
 ): string {
   const raw = emotionLabel || sentimentLabel || 'neutral';
-  const normalized = normalize(raw);
+  const normalized = normalizeMoodLabel(raw);
   const labelKey = EMOTION_LABEL_KEYS[normalized] ?? SENTIMENT_LABEL_KEYS[normalized];
   const mood = labelKey && t ? t(labelKey) : fallbackTitle(normalized || 'neutral');
   return t ? t('iFeelMood', { mood }) : `${mood}.`;
+}
+
+export function translateEmotionLabel(value: string | undefined | null, t: Translator): string {
+  const normalized = normalizeMoodLabel(value);
+  const labelKey = EMOTION_LABEL_KEYS[normalized];
+  return labelKey ? t(labelKey) : fallbackTitle(normalized || 'neutral');
+}
+
+export function translateSentimentLabel(value: string | undefined | null, t: Translator): string {
+  const normalized = normalizeMoodLabel(value);
+  const labelKey = SENTIMENT_LABEL_KEYS[normalized];
+  return labelKey ? t(labelKey) : fallbackTitle(normalized || 'neutral');
 }
 
 export function moodEmoji(emotionLabel: string | undefined, sentimentLabel: string | undefined): string {

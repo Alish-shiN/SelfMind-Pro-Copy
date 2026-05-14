@@ -57,7 +57,7 @@ class AIQuizService:
     def generate_quiz(self, current_user: User, payload: AIQuizGenerateRequest):
         quiz_type = normalize_quiz_type(payload.quiz_type)
         context = self._build_context(current_user)
-        questions = self.engine.generate_questions(quiz_type, context)
+        questions = self.engine.generate_questions(quiz_type, context, payload.language)
 
         return self.repo.create_session(
             user_id=current_user.id,

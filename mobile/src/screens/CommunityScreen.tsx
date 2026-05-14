@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiError, apiFetch } from "../api/client";
 import { getCurrentUser, getUserPreferences } from "../api/user";
@@ -36,7 +36,7 @@ type SupportSpaceKey =
   | "motivation";
 type ReactionType = "support" | "me_too" | "sending_strength" | "helpful";
 type ReactionState = Partial<Record<ReactionType, boolean>>;
-type ReactionResponse = { active: boolean; reactions: ReactionSummary };
+type ReactionResponse = { active: boolean; reactions: ReactionSummary; my_reactions?: ReactionType[] };
 
 type SupportSpace = {
   key: SupportSpaceKey;
@@ -60,6 +60,7 @@ type CommunityPost = {
   author: CommunityAuthor;
   comments_count: number;
   reactions: ReactionSummary;
+  my_reactions?: ReactionType[];
   reports_count: number;
   created_at: string;
   updated_at: string;
@@ -72,6 +73,7 @@ type CommunityComment = {
   is_anonymous: boolean;
   author: CommunityAuthor;
   reactions: ReactionSummary;
+  my_reactions?: ReactionType[];
   reports_count: number;
   created_at: string;
   updated_at: string;
@@ -123,11 +125,11 @@ const getFeed = (supportSpace?: string, limit = 20, offset = 0) => {
       : "";
   return apiFetch<CommunityPost[]>(
     `/community/posts?limit=${limit}&offset=${offset}${space}`,
-    { method: "GET" },
+    { method: "GET", auth: true },
   );
 };
 const getPostDetail = (id: number) =>
-  apiFetch<PostDetail>(`/community/posts/${id}`, { method: "GET" });
+  apiFetch<PostDetail>(`/community/posts/${id}`, { method: "GET", auth: true });
 const createPost = (
   content: string,
   is_anonymous: boolean,
@@ -184,6 +186,37 @@ function timeAgo(iso: string, t: (key: string, params?: Record<string, string | 
   if (diff < 3600) return t("minutesAgo", { count: Math.floor(diff / 60) });
   if (diff < 86400) return t("hoursAgo", { count: Math.floor(diff / 3600) });
   return t("daysAgo", { count: Math.floor(diff / 86400) });
+}
+
+function reactionStateFromList(reactions?: ReactionType[]): ReactionState {
+  return (reactions ?? []).reduce<ReactionState>((state, reaction) => {
+    state[reaction] = true;
+    return state;
+  }, {});
+}
+
+function supportSpaceTitle(space: SupportSpace | undefined, t: (key: string) => string, fallback?: string) {
+  if (!space) return fallback ?? t("generalSupport");
+  return t(`${space.key}Title`);
+}
+
+function supportSpaceDescription(space: SupportSpace, t: (key: string) => string) {
+  return t(`${space.key}Desc`);
+}
+
+function guidelineKeys(guidelines: Guidelines | null) {
+  return guidelines?.principles?.length
+    ? guidelines.principles.map((_, index) => `communityRule${index + 1}`)
+    : ["communityRule1", "communityRule2", "communityRule3", "communityRule4", "communityRule5"];
+}
+
+function canDeleteContent(author: CommunityAuthor, currentUser: UserResponse | null) {
+  if (!currentUser || author.id === null) return false;
+  return (
+    author.id === currentUser.id ||
+    currentUser.role === "admin" ||
+    currentUser.role === "moderator"
+  );
 }
 
 function supportSpaceTitle(space: SupportSpace | undefined, t: (key: string) => string, fallback?: string) {
@@ -411,6 +444,7 @@ function NewPostModal({
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         <SafeAreaView style={modalStyles.safe} edges={["top", "bottom"]}>
           <View style={modalStyles.topBar}>
@@ -583,6 +617,8 @@ function PostDetailModal({
   activeCommentReactions,
   onPostReacted,
   onCommentReacted,
+  onPostReactionHydrated,
+  onCommentReactionsHydrated,
   onClose,
 }: {
   postId: number;
@@ -592,9 +628,12 @@ function PostDetailModal({
   activeCommentReactions: Record<number, ReactionState>;
   onPostReacted: (postId: number, reaction: ReactionType, response: ReactionResponse) => void;
   onCommentReacted: (commentId: number, reaction: ReactionType, response: ReactionResponse) => void;
+  onPostReactionHydrated: (postId: number, reactions: ReactionState) => void;
+  onCommentReactionsHydrated: (reactions: Record<number, ReactionState>) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [detail, setDetail] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
@@ -607,13 +646,21 @@ function PostDetailModal({
 
   const load = useCallback(async () => {
     try {
-      setDetail(await getPostDetail(postId));
+      const nextDetail = await getPostDetail(postId);
+      setDetail(nextDetail);
+      onPostReactionHydrated(postId, reactionStateFromList(nextDetail.my_reactions));
+      onCommentReactionsHydrated(
+        nextDetail.comments.reduce<Record<number, ReactionState>>((state, comment) => {
+          state[comment.id] = reactionStateFromList(comment.my_reactions);
+          return state;
+        }, {}),
+      );
     } catch {
       /* silent */
     } finally {
       setLoading(false);
     }
-  }, [postId]);
+  }, [onCommentReactionsHydrated, onPostReactionHydrated, postId]);
 
   useEffect(() => {
     load();
@@ -652,6 +699,7 @@ function PostDetailModal({
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         <SafeAreaView style={modalStyles.safe} edges={["top", "bottom"]}>
           <View style={modalStyles.topBar}>
@@ -665,8 +713,11 @@ function PostDetailModal({
             <ActivityIndicator style={{ flex: 1 }} color={colors.coral} />
           ) : detail ? (
             <ScrollView
-              contentContainerStyle={modalStyles.body}
+              style={modalStyles.detailScroll}
+              contentContainerStyle={modalStyles.bodyWithInput}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              automaticallyAdjustKeyboardInsets
             >
               <View style={cardStyles.card}>
                 <Text style={cardStyles.author}>{detail.author.username}</Text>
@@ -680,7 +731,7 @@ function PostDetailModal({
                   onReact={async (reaction) => {
                     const response = await reactToPost(detail.id, reaction);
                     onPostReacted(detail.id, reaction, response);
-                    setDetail((current) => current ? { ...current, reactions: response.reactions } : current);
+                    setDetail((current) => current ? { ...current, reactions: response.reactions, my_reactions: response.my_reactions } : current);
                   }}
                 />
               </View>
@@ -708,7 +759,7 @@ function PostDetailModal({
                           ? {
                               ...current,
                               comments: current.comments.map((item) =>
-                                item.id === comment.id ? { ...item, reactions: response.reactions } : item,
+                                item.id === comment.id ? { ...item, reactions: response.reactions, my_reactions: response.my_reactions } : item,
                               ),
                             }
                           : current,
@@ -736,14 +787,7 @@ function PostDetailModal({
               ))}
             </ScrollView>
           ) : null}
-          <View style={modalStyles.inputBar}>
-            <Pressable onPress={() => setIsAnon((value) => !value)} hitSlop={8}>
-              <Ionicons
-                name={isAnon ? "person-remove-outline" : "person-outline"}
-                size={20}
-                color={isAnon ? colors.coral : colors.textMuted}
-              />
-            </Pressable>
+          <View style={[modalStyles.inputBar, { paddingBottom: Math.max(10, insets.bottom) }]}>
             <TextInput
               style={modalStyles.commentInput}
               placeholder={t("supportiveCommentPlaceholder")}
@@ -751,6 +795,7 @@ function PostDetailModal({
               value={commentText}
               onChangeText={setCommentText}
               multiline
+              textAlignVertical="top"
             />
             <Pressable
               style={[
@@ -809,6 +854,12 @@ export function CommunityScreen() {
       ]);
       setGuidelines(guideData);
       setPosts(feedData);
+      setActivePostReactions(
+        feedData.reduce<Record<number, ReactionState>>((state, post) => {
+          state[post.id] = reactionStateFromList(post.my_reactions);
+          return state;
+        }, {}),
+      );
       setCurrentUser(userData);
       if (prefsData) {
         setDefaultAnonymous(prefsData.privacy_preferences.anonymous_community_default);
@@ -834,19 +885,21 @@ export function CommunityScreen() {
     setter: React.Dispatch<React.SetStateAction<Record<number, ReactionState>>>,
     targetId: number,
     reaction: ReactionType,
-    active: boolean,
+    response: ReactionResponse,
   ) => {
     setter((current) => ({
       ...current,
-      [targetId]: {
-        ...(current[targetId] ?? {}),
-        [reaction]: active,
-      },
+      [targetId]: response.my_reactions
+        ? reactionStateFromList(response.my_reactions)
+        : {
+            ...(current[targetId] ?? {}),
+            [reaction]: response.active,
+          },
     }));
   };
 
   const handlePostReacted = (postId: number, reaction: ReactionType, response: ReactionResponse) => {
-    updateActiveReaction(setActivePostReactions, postId, reaction, response.active);
+    updateActiveReaction(setActivePostReactions, postId, reaction, response);
     setPosts((current) =>
       current.map((post) =>
         post.id === postId ? { ...post, reactions: response.reactions } : post,
@@ -855,8 +908,16 @@ export function CommunityScreen() {
   };
 
   const handleCommentReacted = (commentId: number, reaction: ReactionType, response: ReactionResponse) => {
-    updateActiveReaction(setActiveCommentReactions, commentId, reaction, response.active);
+    updateActiveReaction(setActiveCommentReactions, commentId, reaction, response);
   };
+
+  const hydratePostReaction = useCallback((postId: number, reactions: ReactionState) => {
+    setActivePostReactions((current) => ({ ...current, [postId]: reactions }));
+  }, []);
+
+  const hydrateCommentReactions = useCallback((reactions: Record<number, ReactionState>) => {
+    setActiveCommentReactions((current) => ({ ...current, ...reactions }));
+  }, []);
 
   const confirmReportPost = (id: number) => {
     Alert.alert(t("reportPost"), t("reportQueueConfirmPost"), [
@@ -1019,6 +1080,8 @@ export function CommunityScreen() {
           activeCommentReactions={activeCommentReactions}
           onPostReacted={handlePostReacted}
           onCommentReacted={handleCommentReacted}
+          onPostReactionHydrated={hydratePostReaction}
+          onCommentReactionsHydrated={hydrateCommentReactions}
           onClose={() => {
             setSelectedPostId(null);
             load();
@@ -1142,6 +1205,8 @@ const modalStyles = StyleSheet.create({
   },
   postText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   body: { padding: 20, paddingBottom: 40 },
+  detailScroll: { flex: 1 },
+  bodyWithInput: { padding: 20, paddingBottom: 20 },
   fieldLabel: {
     fontSize: 13,
     color: colors.textMuted,

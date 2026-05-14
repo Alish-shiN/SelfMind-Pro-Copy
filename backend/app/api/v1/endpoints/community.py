@@ -45,12 +45,14 @@ def get_feed(
     support_space: str | None = Query(default=None),
     topic_tag: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     return CommunityService(db).get_feed(
         limit=limit,
         offset=offset,
         support_space=support_space,
         topic_tag=topic_tag,
+        current_user=current_user,
     )
 
 
@@ -89,8 +91,9 @@ def moderate_comment(
 def get_post_detail(
     post_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return CommunityService(db).get_post_detail(post_id)
+    return CommunityService(db).get_post_detail(post_id, current_user)
 
 
 @router.delete("/posts/{post_id}")
@@ -140,8 +143,9 @@ def create_comment(
 def get_comments(
     post_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return CommunityService(db).get_comments(post_id)
+    return CommunityService(db).get_comments(post_id, current_user)
 
 
 @router.delete("/comments/{comment_id}")
