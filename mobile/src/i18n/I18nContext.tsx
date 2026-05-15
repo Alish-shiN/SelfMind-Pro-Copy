@@ -15,7 +15,7 @@ type LanguageContextValue = {
   language: AppLanguage;
   ready: boolean;
   setLanguage: (language: AppLanguage) => Promise<void>;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 };
 
 const LANGUAGE_KEY = "selfmind:language";
@@ -58,6 +58,8 @@ const en = {
   empty: "Empty",
   report: "Report",
   delete: "Delete",
+  add: "Add",
+  added: "Added",
   post: "Post",
   rules: "Rules",
   on: "On",
@@ -68,6 +70,7 @@ const en = {
   notSelectedYet: "Not selected yet",
   selected: "Selected",
   anonymous: "Anonymous",
+  me: "Me",
   minutesShort: "min",
   dayShort: "d",
   or: "or",
@@ -106,6 +109,7 @@ const en = {
   onboardingSubtitle3:
     "Private, simple tools designed for everyday mental wellness.",
   homeGreetingPrefix: "Hi,",
+  iFeelMood: "I feel {{mood}}.",
   dashboardGreeting: "Good day,",
   advice: "Advice :",
   startJournalingAdvice:
@@ -127,7 +131,7 @@ const en = {
   therapistMentorSubtitle:
     "If you need human support, reach out to a therapist, mentor, or university support contact.",
   safetyDisclaimer:
-    "SelfMind Pro is not an emergency service. If you may hurt yourself or someone else, call local emergency services now.",
+    "SelfMind Pro is not an emergency service. If you may hurt yourself or someone else, call 112 or local emergency services now.",
   couldNotOpenPhone: "Could not open the phone app on this device.",
   couldNotOpenSms: "Could not open SMS on this device.",
   supportContactStudentMentor: "Student mentor",
@@ -173,7 +177,50 @@ const en = {
   emotionHeatmap: "Emotion heatmap",
   heatmapCaption:
     "Recent calendar intensity by journaling activity and dominant emotion.",
+  last7Days: "7 days",
+  last30Days: "30 days",
+  last90Days: "90 days",
+  emotionJoy: "Joy",
+  emotionCalm: "Calm",
+  emotionStress: "Stress",
+  emotionAnxiety: "Anxiety",
+  emotionSadness: "Sadness",
+  emotionAnger: "Anger",
+  emotionNeutral: "Neutral",
+  sentimentPositive: "Positive",
+  sentimentNeutral: "Neutral",
+  sentimentNegative: "Negative",
+  sentimentMixed: "Mixed",
+  moodBaselineInsight: "Mood baseline",
+  moodTrendInsight: "Mood trend",
+  topEmotionInsight: "Top emotion",
+  journalingConsistencyInsight: "Journaling consistency",
+  moodVsJournalingFrequency: "Mood vs journaling frequency",
+  moodVsQuizSeverity: "Mood vs quiz severity",
+  correlationStrong: "strong",
+  correlationModerate: "moderate",
+  correlationWeak: "weak",
+  correlationMinimal: "minimal",
+  correlationInsufficientData: "insufficient data",
   interpretationLayer: "Interpretation layer",
+  dashboardInsightMoodStrong:
+    "Your average mood is in a strong range for this period. Notice which routines helped sustain it.",
+  dashboardInsightMoodModerate:
+    "Your average mood is moderate, suggesting a mixed period with room to identify supportive patterns.",
+  dashboardInsightMoodLow:
+    "Your average mood is lower this period, so gentle support and smaller daily goals may be especially useful.",
+  dashboardInsightTrendImproved: "Your mood trend improved across this period.",
+  dashboardInsightTrendDeclined: "Your mood trend declined across this period.",
+  dashboardInsightTrendStable:
+    "Your mood trend stayed relatively steady across this period.",
+  dashboardInsightTopEmotion:
+    "{{emotion}} is the most frequent detected emotion, appearing in {{percent}}% of analyzed entries.",
+  dashboardInsightConsistency:
+    "You journaled on {{active}} of {{total}} days ({{percent}}% consistency).",
+  dashboardCorrelationJournalingDesc:
+    "Compares average mood with how often journal entries were created in the same period.",
+  dashboardCorrelationQuizDesc:
+    "Compares average mood with completed quiz severity scores in matching periods.",
   aiDiary: "AI Diary ✨",
   yourThoughts: "Your thoughts,",
   entries: "entries",
@@ -222,7 +269,7 @@ const en = {
   oldest: "oldest",
   startSearchingArchive: "Start searching your archive",
   startSearchingArchiveSub:
-    "Type a word or change a filter to search private journal entries, insights, moods, and tags.",
+    "Type a word or change filters to find your history.",
   noFavorites: "You have not saved any favorites yet",
   noFavoritesSub:
     "Use the star on archive results to save reflections you want to revisit.",
@@ -239,6 +286,23 @@ const en = {
   chooseQuiz: "Choose a self-reflection quiz",
   chooseQuizSub:
     "Pick the area you want to understand today. Nothing starts until you tap start.",
+  notStarted: "Not Started",
+  completedRecently: "Completed recently",
+  quizType_stress_title: "Stress check-in",
+  quizType_stress_description:
+    "Reflect on pressure, coping, and recovery in the last few days.",
+  quizType_burnout_title: "Burnout balance",
+  quizType_burnout_description:
+    "Notice patterns around energy, workload, rest, and capacity.",
+  quizType_emotional_awareness_title: "Emotional awareness",
+  quizType_emotional_awareness_description:
+    "Practice naming emotions, body cues, and reflection patterns.",
+  quizType_study_overload_title: "Study overload",
+  quizType_study_overload_description:
+    "Review task load, focus blocks, breaks, and study planning.",
+  quizType_motivation_title: "Motivation reset",
+  quizType_motivation_description:
+    "Explore momentum, quick wins, routines, and achievable next steps.",
   noCompletedQuizzes:
     "No completed quizzes yet. Start your first quiz when you feel ready.",
   startFirstQuiz: "Start your first quiz",
@@ -282,11 +346,114 @@ const en = {
   startConversation: "Start your conversation",
   writeMessage: "Write a message…",
   couldNotLoadChat: "Could not load chat.",
-  couldNotSendMessage: "Could not send message.",
+  couldNotSendMessage:
+    "Could not send message. Your message stayed in the chat, so you can try again.",
+  aiChatEmptySub:
+    "Share what you’re feeling today. Your assistant will respond with supportive, reflective guidance.",
+  assistantTyping: "Assistant is typing…",
   community: "Community 💜",
   connectSafely: "Connect safely,",
   communityGuidelines: "Community Guidelines",
   supportSpaces: "Support spaces",
+  communityGuidelinesIntro:
+    "Keep support safe, specific, and kind. Use reports when moderators should review something.",
+  communityRule1:
+    "Be supportive: respond with encouragement, validation, and practical kindness.",
+  communityRule2: "No harassment, hate, bullying, graphic content, or shaming.",
+  communityRule3:
+    "Avoid diagnosis or medical instructions; encourage professional or emergency help when safety is at risk.",
+  communityRule4:
+    "Respect privacy. Do not pressure anyone to reveal identity or personal details.",
+  communityRule5:
+    "Use reports for unsafe, inappropriate, spammy, or harmful content so moderators can review it.",
+  pendingReview: "pending review",
+  visible: "visible",
+  hidden: "hidden",
+  adminPanel: "Admin panel",
+  adminOverview: "Overview",
+  adminUsers: "Users",
+  adminModeration: "Moderation",
+  adminSafety: "Safety",
+  adminContent: "Content",
+  adminTotalUsers: "Total users",
+  adminActiveUsers: "Active users",
+  adminJournalEntries: "Journal entries",
+  adminAiChats: "AI chats",
+  adminAiQuizzes: "AI quizzes",
+  adminCommunityPosts: "Community posts",
+  adminMostCommonMoods: "Most common moods",
+  adminNoMoodData: "No mood data yet.",
+  adminMoodValue: "Mood {{score}}/10",
+  adminTopEmotions: "Top emotions",
+  adminNoEmotions: "No analyzed emotions yet.",
+  adminPreviewCsv: "Preview CSV report",
+  adminDownloadCsv: "Download CSV report",
+  adminCsvReady: "CSV ready",
+  adminCsvShared: "CSV report is ready to save or share.",
+  adminCsvSaved: "CSV report was saved at:",
+  adminCsvPreviewHint: "Tap preview to download or share again",
+  adminUsersActivity: "Users and activity",
+  adminRoleJoined: "Role: {{role}} · Joined {{date}}",
+  adminJournalCount: "Journal {{count}}",
+  adminChatsCount: "Chats {{count}}",
+  adminQuizzesCount: "Quizzes {{count}}",
+  adminBlocked: "blocked",
+  adminBlock: "Block",
+  adminActivate: "Activate",
+  adminDeactivate: "Deactivate",
+  adminChangeRole: "Change role",
+  adminCommunityModeration: "Community moderation",
+  adminPosts: "Posts",
+  adminComments: "Comments",
+  adminNoPostsModerate: "No posts to moderate.",
+  adminNoCommentsModerate: "No comments to moderate.",
+  adminApprove: "Approve",
+  adminHide: "Hide",
+  adminShow: "Show",
+  adminSafetySignals: "Safety signals",
+  adminNoRisks: "No risk keyword matches found.",
+  adminJournalEntry: "journal entry",
+  adminCommunityPost: "community post",
+  adminUserLabel: "User: {{user}}",
+  adminUnknownUser: "unknown",
+  adminMatched: "Matched: {{keywords}}",
+  adminManagedContent: "Managed content",
+  adminManagedContentSub: "Prompts, onboarding tips, quiz templates",
+  adminNoContent: "No content items yet. Tap + to create a prompt.",
+  adminActive: "active",
+  adminOff: "off",
+  adminCouldNotLoadData: "Could not load admin data",
+  adminLoadingDashboard: "Loading system dashboard…",
+  adminOnly: "This screen is available only for admin or moderator accounts.",
+  adminInsufficientPermissions: "Insufficient permissions.",
+  adminCouldNotLoadPanel: "Could not load admin panel.",
+  adminDone: "Done",
+  adminActionFailed: "Action failed",
+  adminDeactivateUserTitle: "Deactivate user?",
+  adminActivateUserTitle: "Activate user?",
+  adminUserAccessChange: "{{username}} will {{action}}.",
+  adminLoseAccess: "lose access to the app",
+  adminRegainAccess: "be able to log in again",
+  adminUserDeactivated: "User deactivated.",
+  adminUserActivated: "User activated.",
+  adminChangeRoleTitle: "Change role?",
+  adminSetRoleQuestion: "Set {{username}} role to {{role}}?",
+  adminSetRole: "Set {{role}}",
+  adminRoleChanged: "Role changed to {{role}}.",
+  adminHiddenReason: "Hidden from mobile admin panel",
+  adminPostMarked: "Post marked as {{status}}.",
+  adminCommentMarked: "Comment marked as {{status}}.",
+  adminPromptCreated: "Motivational prompt created.",
+  adminCsvError: "CSV error",
+  adminCouldNotLoadCsv: "Could not load CSV report.",
+  adminPostNumber: "Post #{{id}}",
+  adminRoleUser: "user",
+  adminRoleModerator: "moderator",
+  adminRoleAdmin: "admin",
+  adminContentTypeMotivationalPrompt: "Motivational prompt",
+  adminDefaultPromptTitle: "Daily gentle reflection",
+  adminDefaultPromptBody:
+    "Take a slow breath and write one honest sentence about what you need today.",
   supportSpacesBanner: "Support spaces, not popularity contests",
   supportSpacesBannerSub:
     "Use anonymous posting, topic tags, reports, and gentle reactions.",
@@ -304,7 +471,7 @@ const en = {
   firstSupportiveComment: "Be the first to leave a supportive comment 💬",
   reportPost: "Report post",
   reportComment: "Report comment",
-  reportQueueConfirmPost: "Send this post to the moderation queue?",
+  reportQueueConfirmPost: "Send this post to the moderator queue?",
   reportQueueConfirmComment: "Send this comment to the moderation queue?",
   thanks: "Thanks",
   moderatorsReview: "Moderators will review it.",
@@ -314,30 +481,41 @@ const en = {
   couldNotPost: "Could not post.",
   couldNotPostComment: "Could not post comment.",
   justNow: "just now",
-  minutesAgoSuffix: "m ago",
-  hoursAgoSuffix: "h ago",
-  daysAgoSuffix: "d ago",
+  minutesAgo: "{{count}}m ago",
+  hoursAgo: "{{count}}h ago",
+  daysAgo: "{{count}}d ago",
   support: "Support",
   meToo: "Me too",
   strength: "Strength",
   helpful: "Helpful",
   general: "General",
+  generalSupport: "General support",
+  generalTitle: "General support",
+  generalDesc: "Open reflection, encouragement, and daily check-ins.",
   openSupport: "Open support",
   studyStress: "Study stress",
+  study_stressTitle: "Study stress",
+  study_stressDesc: "Workload, deadlines, classes, and academic pressure.",
   workloadDeadlines: "Workload and deadlines",
   burnout: "Burnout",
+  burnoutTitle: "Burnout",
+  burnoutDesc: "Exhaustion, low energy, and needing sustainable routines.",
   lowEnergyRecovery: "Low energy and recovery",
   examAnxiety: "Exam anxiety",
+  exam_anxietyTitle: "Exam anxiety",
+  exam_anxietyDesc:
+    "Pre-exam worries, test nerves, and grounding before assessments.",
   preExamWorries: "Pre-exam worries",
   motivation: "Motivation",
+  motivationTitle: "Motivation",
+  motivationDesc: "Encouragement, small wins, and getting unstuck.",
   smallWinsEncouragement: "Small wins and encouragement",
   profile: "Profile",
   account: "Account",
   memberSince: "Member since",
   reflectionTools: "Reflection tools",
   archiveSearch: "Archive & Search",
-  archiveSearchDesc:
-    "Find past journals, insights, moods, and saved reflections",
+  archiveSearchDesc: "Find your journals, insights, and saved reflections.",
   personalizationPrefs: "Personalization / AI & Reflection Preferences",
   aiTone: "AI tone",
   reflectionFormat: "Reflection format",
@@ -376,6 +554,8 @@ const en = {
   preferencesError: "Preferences error",
   couldNotSavePreferences: "Could not save preferences.",
   privacyTitle: "SelfMind Pro Privacy Center",
+  privacyCenterSubtitle:
+    "Manage your data, privacy choices, exports, and account safety.",
   exportData: "Export data",
   exportInsights: "Export insights archive",
   deleteAccount: "Delete account + all data",
@@ -454,6 +634,105 @@ const en = {
   goalPaused: "Goal paused.",
   goalDeleted: "Goal deleted.",
   chooseSmallGoal: "Choose one small goal to begin.",
+  weeklySummaryEmptyDesc:
+    "Choose one small goal to connect reflection with self-improvement.",
+  weeklySummaryCompleteDesc:
+    "You completed your active goals this week. Keep noticing what helped.",
+  weeklySummaryProgressDesc:
+    "Small progress still counts. Your check-ins are helping build awareness.",
+  weeklySummaryFreshDesc:
+    "A new week is a fresh chance to take one gentle step.",
+  achievementsEntrySubtitle: "Gentle milestones for consistent self-care.",
+  viewAchievements: "View achievements",
+  achievementsUnlockedCount: "{{unlocked}} of {{total}} unlocked",
+  achievementCategoryEasy: "Easy steps",
+  achievementCategoryMedium: "Gentle consistency",
+  achievementCategoryHard: "Longer rhythms",
+  achievementCategoryBalance: "Balance & self-care",
+  achievementFirstAiChat: "First AI chat",
+  achievementFirstAiChatDesc:
+    "You started your first supportive AI conversation.",
+  achievementFirstGoal: "First goal",
+  achievementFirstGoalDesc: "You added your first supportive goal.",
+  achievementFirstQuiz: "First quiz",
+  achievementFirstQuizDesc: "You completed your first AI self-reflection quiz.",
+  achievementFiveJournalEntries: "Five reflections",
+  achievementFiveJournalEntriesDesc:
+    "You wrote five journal entries at your own pace.",
+  achievementFiveMoodCheckIns: "Five mood check-ins",
+  achievementFiveMoodCheckInsDesc: "You tracked your mood five times.",
+  achievementThreeCompletedGoals: "Three gentle goals",
+  achievementThreeCompletedGoalsDesc:
+    "You completed three supportive goal steps.",
+  achievementThreeQuizTypes: "Three quiz areas",
+  achievementThreeQuizTypesDesc:
+    "You explored three different self-reflection quiz types.",
+  achievementThreeAiChatDays: "Three chat days",
+  achievementThreeAiChatDaysDesc: "You used AI Chat on three different days.",
+  achievementSevenDayReflection: "7-day reflection rhythm",
+  achievementSevenDayReflectionDesc: "You reflected for seven days in a row.",
+  achievementFourteenDayReflection: "14-day reflection rhythm",
+  achievementFourteenDayReflectionDesc:
+    "You kept a gentle reflection rhythm for fourteen days.",
+  achievementTwentyJournalEntries: "Twenty reflections",
+  achievementTwentyJournalEntriesDesc: "You created twenty journal entries.",
+  achievementTwentyMoodCheckIns: "Twenty mood check-ins",
+  achievementTwentyMoodCheckInsDesc:
+    "You checked in with your mood twenty times.",
+  achievementTenCompletedGoals: "Ten supportive steps",
+  achievementTenCompletedGoalsDesc: "You completed ten goal steps with care.",
+  achievementFourWeeklySummaries: "Four weekly reviews",
+  achievementFourWeeklySummariesDesc: "You completed four weekly summaries.",
+  achievementActiveGoalsTwoWeeks: "Two-week goal presence",
+  achievementActiveGoalsTwoWeeksDesc:
+    "You kept an active goal available for two weeks.",
+  achievementTookPause: "Took a pause",
+  achievementTookPauseDesc: "You paused a goal instead of forcing it.",
+  achievementGentleConsistency: "Gentle consistency",
+  achievementGentleConsistencyDesc:
+    "You completed goal steps across three moments.",
+  achievementSelfCareStarter: "Self-care starter",
+  achievementSelfCareStarterDesc: "You added a self-care template goal.",
+  achievementRecoveryFocus: "Recovery focus",
+  achievementRecoveryFocusDesc:
+    "You practiced rest, breathing, or recovery several times.",
+  selfCareTemplatesSub: "Small care practices you can add for this week.",
+  goalTemplateMindfulBreathingTitle: "Mindful breathing",
+  goalTemplateMindfulBreathingDesc:
+    "Take a short breathing pause and notice how you feel afterward.",
+  goalTemplateShortWalkTitle: "Short walk",
+  goalTemplateShortWalkDesc:
+    "Step away for a brief walk or gentle movement break.",
+  goalTemplateSleepReflectionTitle: "Sleep reflection",
+  goalTemplateSleepReflectionDesc:
+    "Reflect on what helped or disrupted your rest.",
+  goalTemplateGratitudeNoteTitle: "Gratitude note",
+  goalTemplateGratitudeNoteDesc:
+    "Write down one small thing you appreciated today.",
+  goalTemplateWaterIntakeTitle: "Water intake",
+  goalTemplateWaterIntakeDesc:
+    "Pause to drink water and check in with your body.",
+  goalTemplateScreenBreakTitle: "Screen break",
+  goalTemplateScreenBreakDesc: "Take a short break away from screens.",
+  goalTemplateTalkToSomeoneTitle: "Talk to someone",
+  goalTemplateTalkToSomeoneDesc: "Reach out to someone supportive or friendly.",
+  goalTemplateCustomSelfCareTitle: "Custom self-care goal",
+  goalTemplateCustomSelfCareDesc:
+    "Create your own supportive self-care practice.",
+  goalNoDescription: "Supportive goal",
+  today: "today",
+  thisWeek: "this week",
+  goalProgressReflection:
+    "You reflected {{count}} times {{period}}. This supports regular emotional check-ins.",
+  goalProgressReflectionEmpty: "One reflection can be a meaningful check-in.",
+  goalProgressMood:
+    "You tracked your mood {{count}} times {{period}}. This can help you notice patterns.",
+  goalProgressMoodEmpty: "A quick mood note can help you understand your week.",
+  goalProgressCompleted:
+    "You completed this supportive practice. Small steady actions matter.",
+  goalProgressSteps:
+    "You made {{count}} step(s) toward this goal. Small progress still counts.",
+  goalProgressEmpty: "Choose one gentle next step when you can.",
   completed: "Completed",
   partial: "Partial",
   missed: "Missed",
@@ -478,8 +757,7 @@ const en = {
   achievementConsistentJournaling: "Consistent Journaling",
   achievementConsistentJournalingDesc: "You completed 5 journal entries.",
   achievementFirstMoodCheckIn: "First Mood Check-in",
-  achievementFirstMoodCheckInDesc:
-    "You completed your first mood check-in.",
+  achievementFirstMoodCheckInDesc: "You completed your first mood check-in.",
   achievementMoodAwareness: "Mood Awareness",
   achievementMoodAwarenessDesc: "You completed 5 mood check-ins.",
   achievementWeeklyMoodReview: "Weekly Mood Review",
@@ -492,21 +770,17 @@ const en = {
   achievementCompletedAiQuizDesc:
     "You completed your first AI reflection quiz.",
   achievementFirstWeeklySummary: "First Weekly Summary",
-  achievementFirstWeeklySummaryDesc:
-    "You completed your first weekly summary.",
+  achievementFirstWeeklySummaryDesc: "You completed your first weekly summary.",
   achievementSupportContactAdded: "Support Contact Added",
   achievementSupportContactAddedDesc:
     "You added a trusted person for difficult moments.",
   achievementPrivacyReady: "Privacy Ready",
-  achievementPrivacyReadyDesc:
-    "You opened or configured your Privacy Center.",
+  achievementPrivacyReadyDesc: "You opened or configured your Privacy Center.",
   achievementWelcomeBack: "Welcome Back",
-  achievementWelcomeBackDesc:
-    "You returned to reflection after a break.",
+  achievementWelcomeBackDesc: "You returned to reflection after a break.",
   achievementEncouragementSmallSteps: "Small steps matter.",
   achievementEncouragementShowedUp: "You showed up for yourself.",
-  achievementEncouragementAwareness:
-    "Reflection builds awareness over time.",
+  achievementEncouragementAwareness: "Reflection builds awareness over time.",
   reflect3Times: "Reflect 3 times",
   reflect3TimesDesc: "Write three journal entries this week.",
   trackMood5Times: "Track mood 5 times",
@@ -530,6 +804,9 @@ const en = {
   personalizeSelfMind: "Personalize SelfMind Pro",
   chooseLater: "Choose later",
   chooseLaterProfile: "You can choose later from Profile.",
+  languageSetupTitle: "Choose your language",
+  languageSetupSub:
+    "The app will switch immediately. You can change this later in Profile.",
   supportQuestion: "What would you like support with?",
   supportQuestionSub: "Pick any goals. You can change these later.",
   preferredReflectionFormat: "Preferred reflection format",
@@ -580,6 +857,34 @@ const en = {
   featurePlaceholderSub:
     "This area will connect to your backend (journal, chat, etc.).",
   featureComingSoon: "Coming soon",
+  apply: "Apply",
+  dateRange: "Date range",
+  fromDate: "From date",
+  toDate: "To date",
+  selectDateRange: "Select date range",
+  personalization: "Personalization",
+  profileSettings: "Profile settings",
+  personalizationDesc:
+    "Choose AI tone, emotional goals, language, and trusted-person support.",
+  couldNotLoadPreferences: "Could not load preferences.",
+  preferencesSaved: "Preferences saved",
+  preferencesSavedMessage: "Your personalization settings were updated.",
+  aiToneAffectsChat:
+    "AI tone and emotional goals are used to guide future AI chat replies.",
+  privacyDefaults: "Privacy defaults",
+  privateDiaryDefaultDesc:
+    "New journal entries start private unless you change them while writing.",
+  anonymousCommunityDefaultDesc:
+    "New community posts and comments start anonymous unless you change them.",
+  allowAiInsightsDesc:
+    "Allow AI insights and emotional patterns to personalize support.",
+  exportReportsDesc:
+    "Save and share JSON exports or your weekly PDF report from this device.",
+  emotionalDataNotice:
+    "Journal entries, mood scores, detected emotions, AI reflections, quiz answers, chat messages, and safety signals can reveal sensitive mental and emotional patterns. SelfMind Pro uses them only to provide journaling, analytics, safety, reminders, and personalized AI features.",
+  couldNotLoadPrivacy: "Could not load Privacy Center.",
+  localFileStorageUnavailable:
+    "Local file storage is unavailable on this device.",
 };
 
 const ru: Record<keyof typeof en, string> = {
@@ -603,6 +908,8 @@ const ru: Record<keyof typeof en, string> = {
   empty: "Пусто",
   report: "Пожаловаться",
   delete: "Удалить",
+  add: "Добавить",
+  added: "Добавлено",
   post: "Опубликовать",
   rules: "Правила",
   on: "Вкл",
@@ -613,6 +920,7 @@ const ru: Record<keyof typeof en, string> = {
   notSelectedYet: "Пока не выбрано",
   selected: "Выбрано",
   anonymous: "Анонимно",
+  me: "Я",
   minutesShort: "мин",
   dayShort: "д",
   or: "или",
@@ -649,12 +957,45 @@ const ru: Record<keyof typeof en, string> = {
   onboardingTitle3: "Развивайтесь в своем темпе",
   onboardingSubtitle3:
     "Приватные простые инструменты для ежедневного ментального благополучия.",
+  homeGreetingPrefix: "Привет,",
+  iFeelMood: "Я чувствую {{mood}}.",
   dashboardGreeting: "Добрый день,",
   advice: "Совет:",
   startJournalingAdvice:
     "Начните вести дневник, чтобы получать персональные инсайты и советы.",
   needHelp: "Нужна срочная помощь?",
+  immediateHelp: "Срочная помощь",
   crisisResources: "Открыть кризисные ресурсы и поддержку.",
+  call: "Позвонить",
+  sms: "SMS",
+  trustedPerson: "Доверенный человек",
+  trustedPersonPhoneNumber: "Телефон доверенного человека",
+  trustedPersonHelper:
+    "Добавьте человека, которому доверяете, чтобы быстро позвонить или написать ему в трудный момент.",
+  trustedPersonMissing:
+    "Сначала добавьте телефон доверенного человека в настройках персонализации.",
+  trustedPersonPhoneInvalid:
+    "Введите номер телефона, используя цифры, пробелы, +, -, скобки.",
+  therapistMentorMode: "Контакты терапевта и наставника",
+  therapistMentorSubtitle:
+    "Если нужна человеческая поддержка, обратитесь к терапевту, наставнику или университетской службе поддержки.",
+  safetyDisclaimer:
+    "SelfMind Pro не является экстренной службой. Если вы можете навредить себе или другому человеку, немедленно позвоните в местные экстренные службы.",
+  couldNotOpenPhone:
+    "Не удалось открыть приложение телефона на этом устройстве.",
+  couldNotOpenSms: "Не удалось открыть SMS на этом устройстве.",
+  supportContactStudentMentor: "Студенческий наставник",
+  supportContactMentorRole: "Равная поддержка",
+  supportContactStudentMentorDesc:
+    "Доверенный наставник кампуса, который может побыть рядом и помочь найти следующие шаги.",
+  supportContactTherapist: "Терапевт кампуса",
+  supportContactTherapistRole: "Специалист по ментальному здоровью",
+  supportContactTherapistDesc:
+    "Профессиональный контакт поддержки при срочном эмоциональном напряжении.",
+  supportContactUniversityOffice: "Университетская служба поддержки",
+  supportContactOfficeRole: "Студенческие службы",
+  supportContactUniversityOfficeDesc:
+    "Административная поддержка, которая поможет связаться с местными ресурсами безопасности.",
   currentMood: "Текущее настроение",
   noDataYet: "Пока нет данных",
   searchHistory: "Поиск по истории",
@@ -684,7 +1025,50 @@ const ru: Record<keyof typeof en, string> = {
   emotionHeatmap: "Тепловая карта эмоций",
   heatmapCaption:
     "Недавняя интенсивность по активности дневника и доминирующей эмоции.",
+  last7Days: "7 дней",
+  last30Days: "30 дней",
+  last90Days: "90 дней",
+  emotionJoy: "Радость",
+  emotionCalm: "Спокойствие",
+  emotionStress: "Стресс",
+  emotionAnxiety: "Тревога",
+  emotionSadness: "Грусть",
+  emotionAnger: "Злость",
+  emotionNeutral: "Нейтрально",
+  sentimentPositive: "Позитивный",
+  sentimentNeutral: "Нейтральный",
+  sentimentNegative: "Негативный",
+  sentimentMixed: "Смешанный",
+  moodBaselineInsight: "Базовый уровень настроения",
+  moodTrendInsight: "Тренд настроения",
+  topEmotionInsight: "Главная эмоция",
+  journalingConsistencyInsight: "Регулярность дневника",
+  moodVsJournalingFrequency: "Настроение и частота дневника",
+  moodVsQuizSeverity: "Настроение и выраженность опросов",
+  correlationStrong: "сильная",
+  correlationModerate: "умеренная",
+  correlationWeak: "слабая",
+  correlationMinimal: "минимальная",
+  correlationInsufficientData: "недостаточно данных",
   interpretationLayer: "Слой интерпретации",
+  dashboardInsightMoodStrong:
+    "Среднее настроение в этом периоде находится в устойчивом диапазоне. Заметьте, какие привычки помогли его поддержать.",
+  dashboardInsightMoodModerate:
+    "Среднее настроение умеренное: период был смешанным, и можно найти поддерживающие паттерны.",
+  dashboardInsightMoodLow:
+    "Среднее настроение ниже в этом периоде, поэтому мягкая поддержка и небольшие ежедневные цели могут быть особенно полезны.",
+  dashboardInsightTrendImproved: "Тренд настроения улучшился за этот период.",
+  dashboardInsightTrendDeclined: "Тренд настроения снизился за этот период.",
+  dashboardInsightTrendStable:
+    "Тренд настроения оставался относительно стабильным в этот период.",
+  dashboardInsightTopEmotion:
+    "{{emotion}} — самая частая обнаруженная эмоция, она встречается в {{percent}}% проанализированных записей.",
+  dashboardInsightConsistency:
+    "Вы вели дневник {{active}} из {{total}} дней ({{percent}}% регулярности).",
+  dashboardCorrelationJournalingDesc:
+    "Сравнивает среднее настроение с частотой создания записей за тот же период.",
+  dashboardCorrelationQuizDesc:
+    "Сравнивает среднее настроение с уровнями завершенных опросов за похожие периоды.",
   aiDiary: "AI-дневник ✨",
   yourThoughts: "Ваши мысли,",
   entries: "записей",
@@ -732,7 +1116,11 @@ const ru: Record<keyof typeof en, string> = {
   newest: "новые",
   oldest: "старые",
   startSearchingArchive: "Начните поиск в архиве",
+  startSearchingArchiveSub:
+    "Введите слово или измените фильтры, чтобы найти историю.",
   noFavorites: "У вас пока нет избранного",
+  noFavoritesSub:
+    "Используйте звездочку в результатах архива, чтобы сохранить рефлексии для повторного просмотра.",
   noEntriesFound: "Записи не найдены",
   tryChangingFilters: "Попробуйте изменить фильтры",
   result: "результат",
@@ -744,6 +1132,27 @@ const ru: Record<keyof typeof en, string> = {
   quizDisclaimer:
     "Этот опрос предназначен для саморефлексии и не является медицинским диагнозом.",
   chooseQuiz: "Выберите опрос для саморефлексии",
+  chooseQuizSub:
+    "Выберите область, которую хотите понять сегодня. Ничего не начнется, пока вы не нажмете старт.",
+  notStarted: "Не начато",
+  completedRecently: "Недавно завершено",
+  quizType_stress_title: "Проверка стресса",
+  quizType_stress_description:
+    "Осмыслите давление, способы справляться и восстановление за последние несколько дней.",
+  quizType_burnout_title: "Баланс выгорания",
+  quizType_burnout_description:
+    "Заметьте паттерны энергии, нагрузки, отдыха и ресурсов.",
+  quizType_emotional_awareness_title: "Эмоциональная осознанность",
+  quizType_emotional_awareness_description:
+    "Потренируйтесь называть эмоции, телесные сигналы и паттерны рефлексии.",
+  quizType_study_overload_title: "Учебная перегрузка",
+  quizType_study_overload_description:
+    "Оцените задачи, блоки фокуса, перерывы и учебное планирование.",
+  quizType_motivation_title: "Перезапуск мотивации",
+  quizType_motivation_description:
+    "Исследуйте импульс, быстрые победы, рутины и достижимые следующие шаги.",
+  noCompletedQuizzes:
+    "Завершенных опросов пока нет. Начните первый, когда будете готовы.",
   startFirstQuiz: "Начать первый опрос",
   startSelectedQuiz: "Начать выбранный опрос",
   availableQuizTypes: "Доступные опросы",
@@ -779,19 +1188,47 @@ const ru: Record<keyof typeof en, string> = {
   startConversation: "Начните разговор",
   writeMessage: "Напишите сообщение…",
   couldNotLoadChat: "Не удалось загрузить чат.",
-  couldNotSendMessage: "Не удалось отправить сообщение.",
+  couldNotSendMessage:
+    "Не удалось отправить сообщение. Ваше сообщение осталось в чате, попробуйте еще раз.",
+  aiChatEmptySub:
+    "Поделитесь тем, что чувствуете сегодня. Ассистент ответит поддерживающе и рефлексивно.",
+  assistantTyping: "Ассистент печатает…",
   community: "Сообщество 💜",
   connectSafely: "Общайтесь безопасно,",
   communityGuidelines: "Правила сообщества",
   supportSpaces: "Пространства поддержки",
+  communityGuidelinesIntro:
+    "Сохраняйте поддержку безопасной, конкретной и доброй. Используйте жалобы, когда нужна проверка модераторов.",
+  communityRule1:
+    "Поддерживайте: отвечайте с ободрением, признанием чувств и практичной добротой.",
+  communityRule2:
+    "Запрещены травля, ненависть, буллинг, графичный контент и стыжение.",
+  communityRule3:
+    "Не ставьте диагнозы и не давайте медицинских инструкций; при риске для безопасности советуйте профессиональную или экстренную помощь.",
+  communityRule4:
+    "Уважайте приватность. Не давите на людей, чтобы они раскрывали личность или детали.",
+  communityRule5:
+    "Используйте жалобы для небезопасного, неподходящего, спамного или вредного контента, чтобы модераторы могли проверить его.",
+  supportSpacesBanner: "Пространства поддержки, а не конкурс популярности",
+  supportSpacesBannerSub:
+    "Используйте анонимные посты, теги тем, жалобы и мягкие реакции.",
   all: "Все",
   noPostsYet: "Здесь пока нет постов",
-  newSupportPost: "Новый пост поддержки",
+  newSupportPost: "Новый пост",
   supportSpace: "Пространство поддержки",
+  postPlaceholder:
+    "Поделитесь тем, что у вас на душе. Попросите поддержки или поддержите других…",
+  topicTagsPlaceholder: "Теги темы: дедлайны, экзамены, сон",
   postAnonymously: "Опубликовать анонимно",
   supportThread: "Ветка поддержки",
+  supportiveCommentPlaceholder: "Напишите поддерживающий комментарий…",
+  firstSupportiveComment:
+    "Станьте первым, кто оставит поддерживающий комментарий 💬",
   reportPost: "Пожаловаться на пост",
   reportComment: "Пожаловаться на комментарий",
+  reportQueueConfirmPost: "Отправить этот пост в очередь модераторов?",
+  reportQueueConfirmComment:
+    "Отправить этот комментарий в очередь модераторов?",
   thanks: "Спасибо",
   moderatorsReview: "Модераторы проверят это.",
   deletePost: "Удалить пост",
@@ -800,20 +1237,132 @@ const ru: Record<keyof typeof en, string> = {
   couldNotPost: "Не удалось опубликовать.",
   couldNotPostComment: "Не удалось отправить комментарий.",
   justNow: "только что",
+  minutesAgo: "{{count}} мин. назад",
+  hoursAgo: "{{count}} ч. назад",
+  daysAgo: "{{count}} дн. назад",
   support: "Поддержка",
   meToo: "Я тоже",
   strength: "Силы",
   helpful: "Полезно",
   general: "Общее",
+  generalSupport: "Общая поддержка",
+  generalTitle: "Общая поддержка",
+  generalDesc: "Открытая рефлексия, ободрение и ежедневные проверки.",
+  openSupport: "Открытая поддержка",
   studyStress: "Учебный стресс",
+  study_stressTitle: "Учебный стресс",
+  study_stressDesc: "Нагрузка, дедлайны, занятия и учебное давление.",
+  workloadDeadlines: "Нагрузка и дедлайны",
   burnout: "Выгорание",
+  burnoutTitle: "Выгорание",
+  burnoutDesc: "Истощение, мало энергии и потребность в устойчивом режиме.",
+  lowEnergyRecovery: "Мало энергии и восстановление",
   examAnxiety: "Тревога перед экзаменом",
+  exam_anxietyTitle: "Тревога перед экзаменом",
+  exam_anxietyDesc:
+    "Волнение перед экзаменами, тестовая тревога и заземление перед оцениванием.",
+  preExamWorries: "Волнение перед экзаменом",
   motivation: "Мотивация",
+  motivationTitle: "Мотивация",
+  motivationDesc: "Ободрение, маленькие победы и помощь сдвинуться с места.",
+  smallWinsEncouragement: "Маленькие победы и поддержка",
+  pendingReview: "ожидает проверки",
+  visible: "видимый",
+  hidden: "скрытый",
+  adminPanel: "Панель администратора",
+  adminOverview: "Обзор",
+  adminUsers: "Пользователи",
+  adminModeration: "Модерация",
+  adminSafety: "Безопасность",
+  adminContent: "Контент",
+  adminTotalUsers: "Всего пользователей",
+  adminActiveUsers: "Активные пользователи",
+  adminJournalEntries: "Записи дневника",
+  adminAiChats: "AI-чаты",
+  adminAiQuizzes: "AI-опросы",
+  adminCommunityPosts: "Посты сообщества",
+  adminMostCommonMoods: "Самые частые настроения",
+  adminNoMoodData: "Данных о настроении пока нет.",
+  adminMoodValue: "Настроение {{score}}/10",
+  adminTopEmotions: "Главные эмоции",
+  adminNoEmotions: "Проанализированных эмоций пока нет.",
+  adminPreviewCsv: "Предпросмотр CSV",
+  adminDownloadCsv: "Скачать CSV-отчет",
+  adminCsvReady: "CSV готов",
+  adminCsvShared: "CSV-отчет готов для сохранения или отправки.",
+  adminCsvSaved: "CSV-отчет сохранен здесь:",
+  adminCsvPreviewHint:
+    "Нажмите на предпросмотр, чтобы скачать или отправить снова",
+  adminUsersActivity: "Пользователи и активность",
+  adminRoleJoined: "Роль: {{role}} · Присоединился {{date}}",
+  adminJournalCount: "Дневник {{count}}",
+  adminChatsCount: "Чаты {{count}}",
+  adminQuizzesCount: "Опросы {{count}}",
+  adminBlocked: "заблокирован",
+  adminBlock: "Блокировать",
+  adminActivate: "Активировать",
+  adminDeactivate: "Деактивировать",
+  adminChangeRole: "Изменить роль",
+  adminCommunityModeration: "Модерация сообщества",
+  adminPosts: "Посты",
+  adminComments: "Комментарии",
+  adminNoPostsModerate: "Нет постов для модерации.",
+  adminNoCommentsModerate: "Нет комментариев для модерации.",
+  adminApprove: "Одобрить",
+  adminHide: "Скрыть",
+  adminShow: "Показать",
+  adminSafetySignals: "Сигналы безопасности",
+  adminNoRisks: "Совпадений с риск-словами не найдено.",
+  adminJournalEntry: "запись дневника",
+  adminCommunityPost: "пост сообщества",
+  adminUserLabel: "Пользователь: {{user}}",
+  adminUnknownUser: "неизвестно",
+  adminMatched: "Совпало: {{keywords}}",
+  adminManagedContent: "Управляемый контент",
+  adminManagedContentSub: "Промпты, советы онбординга, шаблоны опросов",
+  adminNoContent: "Контента пока нет. Нажмите +, чтобы создать промпт.",
+  adminActive: "активен",
+  adminOff: "выкл",
+  adminCouldNotLoadData: "Не удалось загрузить данные админки",
+  adminLoadingDashboard: "Загрузка системной панели…",
+  adminOnly: "Экран доступен только администраторам и модераторам.",
+  adminInsufficientPermissions: "Недостаточно прав.",
+  adminCouldNotLoadPanel: "Не удалось загрузить панель администратора.",
+  adminDone: "Готово",
+  adminActionFailed: "Действие не удалось",
+  adminDeactivateUserTitle: "Деактивировать пользователя?",
+  adminActivateUserTitle: "Активировать пользователя?",
+  adminUserAccessChange: "{{username}} {{action}}.",
+  adminLoseAccess: "потеряет доступ к приложению",
+  adminRegainAccess: "снова сможет войти",
+  adminUserDeactivated: "Пользователь деактивирован.",
+  adminUserActivated: "Пользователь активирован.",
+  adminChangeRoleTitle: "Изменить роль?",
+  adminSetRoleQuestion: "Назначить {{username}} роль {{role}}?",
+  adminSetRole: "Назначить {{role}}",
+  adminRoleChanged: "Роль изменена на {{role}}.",
+  adminHiddenReason: "Скрыто из мобильной админ-панели",
+  adminPostMarked: "Пост отмечен как {{status}}.",
+  adminCommentMarked: "Комментарий отмечен как {{status}}.",
+  adminPromptCreated: "Мотивационный промпт создан.",
+  adminCsvError: "Ошибка CSV",
+  adminCouldNotLoadCsv: "Не удалось загрузить CSV-отчет.",
+  adminPostNumber: "Пост №{{id}}",
+  adminRoleUser: "пользователь",
+  adminRoleModerator: "модератор",
+  adminRoleAdmin: "администратор",
+  adminContentTypeMotivationalPrompt: "Мотивационный промпт",
+  adminDefaultPromptTitle: "Ежедневная мягкая рефлексия",
+  adminDefaultPromptBody:
+    "Сделайте медленный вдох и напишите одно честное предложение о том, что вам нужно сегодня.",
   profile: "Профиль",
   account: "Аккаунт",
   memberSince: "Участник с",
   reflectionTools: "Инструменты рефлексии",
+  archiveSearch: "Архив и поиск",
+  archiveSearchDesc: "Найдите свои записи, инсайты и сохранённые размышления.",
   personalizationPrefs: "Персонализация / AI и рефлексия",
+  editPersonalization: "Изменить настройки персонализации",
   aiTone: "Тон AI",
   reflectionFormat: "Формат рефлексии",
   reminderFrequency: "Частота напоминаний",
@@ -839,7 +1388,9 @@ const ru: Record<keyof typeof en, string> = {
   loadingProfile: "Загрузка профиля…",
   signOutConfirmTitle: "Выйти",
   signOutConfirm: "Вы уверены, что хотите выйти?",
-  privacyTitle: "Центр приватности SelfMind Pro",
+  privacyTitle: "Центр конфиденциальности SelfMind Pro",
+  privacyCenterSubtitle:
+    "Управляйте своими данными, настройками приватности, экспортом и безопасностью аккаунта.",
   exportInsights: "Экспорт архива инсайтов",
   deleteAccount: "Удалить аккаунт и все данные",
   allowAiInsights: "Разрешить AI-инсайтам персонализировать будущую поддержку",
@@ -859,8 +1410,13 @@ const ru: Record<keyof typeof en, string> = {
   acceptPrivacyNotice: "Принять уведомление о приватности",
   reacceptPrivacyNotice: "Принять уведомление повторно",
   privacySaved: "Приватность сохранена",
+  privacySavedMessage: "Настройки центра приватности обновлены.",
+  privacyError: "Ошибка приватности",
+  couldNotSavePrivacy: "Не удалось сохранить настройки приватности.",
   noticeAccepted: "Уведомление принято",
   exportReady: "Экспорт готов",
+  exportGeneratedSensitive:
+    "Экспорт успешно создан. Обращайтесь с ним как с чувствительными эмоциональными данными.",
   exportError: "Ошибка экспорта",
   generatingPdf: "Создание PDF-отчета…",
   pdfGenerated: "PDF-отчет создан.",
@@ -897,34 +1453,27 @@ const ru: Record<keyof typeof en, string> = {
   achievementThreeDayReflectionDesc:
     "Вы занимались рефлексией три дня. Маленькие шаги важны.",
   achievementConsistentJournaling: "Регулярное ведение дневника",
-  achievementConsistentJournalingDesc:
-    "Вы завершили 5 записей в дневнике.",
+  achievementConsistentJournalingDesc: "Вы завершили 5 записей в дневнике.",
   achievementFirstMoodCheckIn: "Первая отметка настроения",
-  achievementFirstMoodCheckInDesc:
-    "Вы сделали первую отметку настроения.",
+  achievementFirstMoodCheckInDesc: "Вы сделали первую отметку настроения.",
   achievementMoodAwareness: "Осознанность настроения",
   achievementMoodAwarenessDesc: "Вы сделали 5 отметок настроения.",
   achievementWeeklyMoodReview: "Еженедельный обзор настроения",
   achievementWeeklyMoodReviewDesc:
     "Вы посмотрели свои эмоциональные паттерны за неделю.",
   achievementFirstAiInsight: "Первый AI-инсайт",
-  achievementFirstAiInsightDesc:
-    "Вы получили первый AI-инсайт для рефлексии.",
+  achievementFirstAiInsightDesc: "Вы получили первый AI-инсайт для рефлексии.",
   achievementCompletedAiQuiz: "Завершён AI-опрос",
-  achievementCompletedAiQuizDesc:
-    "Вы завершили первый AI-опрос для рефлексии.",
+  achievementCompletedAiQuizDesc: "Вы завершили первый AI-опрос для рефлексии.",
   achievementFirstWeeklySummary: "Первое недельное резюме",
-  achievementFirstWeeklySummaryDesc:
-    "Вы завершили первое недельное резюме.",
+  achievementFirstWeeklySummaryDesc: "Вы завершили первое недельное резюме.",
   achievementSupportContactAdded: "Доверенное лицо добавлено",
   achievementSupportContactAddedDesc:
     "Вы добавили доверенного человека для трудных моментов.",
   achievementPrivacyReady: "Конфиденциальность настроена",
-  achievementPrivacyReadyDesc:
-    "Вы открыли или настроили Privacy Center.",
+  achievementPrivacyReadyDesc: "Вы открыли или настроили Privacy Center.",
   achievementWelcomeBack: "С возвращением",
-  achievementWelcomeBackDesc:
-    "Вы вернулись к рефлексии после перерыва.",
+  achievementWelcomeBackDesc: "Вы вернулись к рефлексии после перерыва.",
   achievementEncouragementSmallSteps: "Маленькие шаги важны.",
   achievementEncouragementShowedUp: "Вы нашли время для себя.",
   achievementEncouragementAwareness:
@@ -933,6 +1482,107 @@ const ru: Record<keyof typeof en, string> = {
   reflect3TimesDesc: "Напишите три записи в дневнике на этой неделе.",
   trackMood5Times: "Отследить настроение 5 раз",
   trackMood5TimesDesc: "Отметьте настроение в дневнике пять раз за неделю.",
+  weeklySummaryEmptyDesc:
+    "Выберите одну небольшую цель, чтобы связать рефлексию с заботой о себе.",
+  weeklySummaryCompleteDesc:
+    "Вы завершили активные цели на этой неделе. Продолжайте замечать, что помогло.",
+  weeklySummaryProgressDesc:
+    "Даже небольшой прогресс важен. Ваши отметки помогают развивать осознанность.",
+  weeklySummaryFreshDesc:
+    "Новая неделя — мягкий шанс сделать один бережный шаг.",
+  achievementsEntrySubtitle: "Мягкие вехи для регулярной заботы о себе.",
+  viewAchievements: "Посмотреть достижения",
+  achievementsUnlockedCount: "Открыто {{unlocked}} из {{total}}",
+  achievementCategoryEasy: "Легкие шаги",
+  achievementCategoryMedium: "Мягкая регулярность",
+  achievementCategoryHard: "Длинные ритмы",
+  achievementCategoryBalance: "Баланс и забота о себе",
+  achievementFirstAiChat: "Первый AI-чат",
+  achievementFirstAiChatDesc: "Вы начали первый поддерживающий разговор с AI.",
+  achievementFirstGoal: "Первая цель",
+  achievementFirstGoalDesc: "Вы добавили первую поддерживающую цель.",
+  achievementFirstQuiz: "Первый опрос",
+  achievementFirstQuizDesc: "Вы завершили первый AI-опрос для саморефлексии.",
+  achievementFiveJournalEntries: "Пять рефлексий",
+  achievementFiveJournalEntriesDesc:
+    "Вы написали пять записей в дневнике в своем темпе.",
+  achievementFiveMoodCheckIns: "Пять отметок настроения",
+  achievementFiveMoodCheckInsDesc: "Вы отметили настроение пять раз.",
+  achievementThreeCompletedGoals: "Три бережные цели",
+  achievementThreeCompletedGoalsDesc:
+    "Вы завершили три поддерживающих шага цели.",
+  achievementThreeQuizTypes: "Три области опросов",
+  achievementThreeQuizTypesDesc:
+    "Вы исследовали три разных типа опросов для саморефлексии.",
+  achievementThreeAiChatDays: "Три дня чата",
+  achievementThreeAiChatDaysDesc: "Вы использовали AI-чат в три разных дня.",
+  achievementSevenDayReflection: "7-дневный ритм рефлексии",
+  achievementSevenDayReflectionDesc: "Вы рефлексировали семь дней подряд.",
+  achievementFourteenDayReflection: "14-дневный ритм рефлексии",
+  achievementFourteenDayReflectionDesc:
+    "Вы поддерживали мягкий ритм рефлексии четырнадцать дней.",
+  achievementTwentyJournalEntries: "Двадцать рефлексий",
+  achievementTwentyJournalEntriesDesc:
+    "Вы создали двадцать записей в дневнике.",
+  achievementTwentyMoodCheckIns: "Двадцать отметок настроения",
+  achievementTwentyMoodCheckInsDesc: "Вы отметили настроение двадцать раз.",
+  achievementTenCompletedGoals: "Десять поддерживающих шагов",
+  achievementTenCompletedGoalsDesc: "Вы бережно завершили десять шагов целей.",
+  achievementFourWeeklySummaries: "Четыре недельных обзора",
+  achievementFourWeeklySummariesDesc: "Вы завершили четыре недельных резюме.",
+  achievementActiveGoalsTwoWeeks: "Две недели с целью",
+  achievementActiveGoalsTwoWeeksDesc:
+    "Вы сохраняли активную цель доступной две недели.",
+  achievementTookPause: "Вы сделали паузу",
+  achievementTookPauseDesc:
+    "Вы приостановили цель вместо того, чтобы заставлять себя.",
+  achievementGentleConsistency: "Мягкая регулярность",
+  achievementGentleConsistencyDesc:
+    "Вы выполняли шаги цели в три разных момента.",
+  achievementSelfCareStarter: "Старт заботы о себе",
+  achievementSelfCareStarterDesc: "Вы добавили цель из шаблона заботы о себе.",
+  achievementRecoveryFocus: "Фокус на восстановлении",
+  achievementRecoveryFocusDesc:
+    "Вы несколько раз практиковали отдых, дыхание или восстановление.",
+  selfCareTemplatesSub:
+    "Небольшие практики заботы, которые можно добавить на эту неделю.",
+  goalTemplateMindfulBreathingTitle: "Осознанное дыхание",
+  goalTemplateMindfulBreathingDesc:
+    "Сделайте короткую дыхательную паузу и отметьте, как вы себя чувствуете после.",
+  goalTemplateShortWalkTitle: "Короткая прогулка",
+  goalTemplateShortWalkDesc:
+    "Отойдите ненадолго на прогулку или мягкую двигательную паузу.",
+  goalTemplateSleepReflectionTitle: "Рефлексия сна",
+  goalTemplateSleepReflectionDesc:
+    "Подумайте, что помогло или мешало вашему отдыху.",
+  goalTemplateGratitudeNoteTitle: "Заметка благодарности",
+  goalTemplateGratitudeNoteDesc:
+    "Запишите одну небольшую вещь, за которую вы сегодня благодарны.",
+  goalTemplateWaterIntakeTitle: "Вода",
+  goalTemplateWaterIntakeDesc:
+    "Сделайте паузу, выпейте воды и прислушайтесь к телу.",
+  goalTemplateScreenBreakTitle: "Перерыв от экрана",
+  goalTemplateScreenBreakDesc: "Сделайте короткий перерыв без экранов.",
+  goalTemplateTalkToSomeoneTitle: "Поговорить с кем-то",
+  goalTemplateTalkToSomeoneDesc:
+    "Свяжитесь с человеком, который может поддержать или просто дружелюбен.",
+  goalTemplateCustomSelfCareTitle: "Своя цель заботы о себе",
+  goalTemplateCustomSelfCareDesc:
+    "Создайте собственную поддерживающую практику заботы о себе.",
+  goalNoDescription: "Поддерживающая цель",
+  today: "сегодня",
+  thisWeek: "на этой неделе",
+  goalProgressReflection:
+    "Вы рефлексировали {{count}} раз(а) {{period}}. Это поддерживает регулярные эмоциональные отметки.",
+  goalProgressReflectionEmpty: "Одна рефлексия может быть значимой отметкой.",
+  goalProgressMood:
+    "Вы отмечали настроение {{count}} раз(а) {{period}}. Это помогает замечать паттерны.",
+  goalProgressMoodEmpty: "Короткая отметка настроения помогает понять неделю.",
+  goalProgressCompleted:
+    "Вы завершили эту поддерживающую практику. Маленькие устойчивые действия важны.",
+  goalProgressSteps:
+    "Вы сделали {{count}} шаг(а) к этой цели. Небольшой прогресс тоже считается.",
+  goalProgressEmpty: "Выберите один мягкий следующий шаг, когда сможете.",
   couldNotLoadQuiz: "Не удалось загрузить AI-опрос.",
   couldNotStartQuiz: "Не удалось начать опрос.",
   couldNotSubmitQuiz: "Не удалось отправить опрос.",
@@ -951,6 +1601,9 @@ const ru: Record<keyof typeof en, string> = {
   personalizeSelfMind: "Настройте SelfMind Pro",
   chooseLater: "Выбрать позже",
   chooseLaterProfile: "Можно выбрать позже в профиле.",
+  languageSetupTitle: "Выберите язык",
+  languageSetupSub:
+    "Интерфейс переключится сразу. Позже язык можно изменить в профиле.",
   supportQuestion: "В чем нужна поддержка?",
   supportQuestionSub: "Выберите любые цели. Их можно изменить позже.",
   preferredReflectionFormat: "Предпочтительный формат рефлексии",
@@ -995,6 +1648,44 @@ const ru: Record<keyof typeof en, string> = {
   featurePlaceholderSub:
     "Этот раздел подключится к вашему backend (дневник, чат и т. д.).",
   featureComingSoon: "Скоро",
+  apply: "Применить",
+  dateRange: "Диапазон дат",
+  fromDate: "Дата с",
+  toDate: "Дата по",
+  selectDateRange: "Выберите диапазон дат",
+  personalization: "Персонализация",
+  profileSettings: "Настройки профиля",
+  personalizationDesc:
+    "Выберите тон AI, эмоциональные цели, язык и контакт доверенного человека.",
+  couldNotLoadPreferences: "Не удалось загрузить настройки.",
+  preferencesSaved: "Настройки сохранены",
+  preferencesSavedMessage: "Настройки персонализации обновлены.",
+  aiToneAffectsChat:
+    "Тон AI и эмоциональные цели помогают настраивать будущие ответы AI-чата.",
+  privacyDefaults: "Настройки приватности по умолчанию",
+  privateDiaryDefaultDesc:
+    "Новые записи дневника начинаются приватными, пока вы не измените это при написании.",
+  anonymousCommunityDefaultDesc:
+    "Новые посты и комментарии в сообществе начинаются анонимными, пока вы не измените это.",
+  allowAiInsightsDesc:
+    "Разрешить AI-инсайтам и эмоциональным паттернам персонализировать поддержку.",
+  exportReportsDesc:
+    "Сохраняйте и отправляйте JSON-экспорты или недельный PDF-отчет с устройства.",
+  emotionalDataNotice:
+    "Записи дневника, оценки настроения, выявленные эмоции, AI-рефлексии, ответы опросов, сообщения чата и сигналы безопасности могут раскрывать чувствительные ментальные и эмоциональные паттерны. SelfMind Pro использует их только для дневника, аналитики, безопасности, напоминаний и персонализированных AI-функций.",
+  reduceStress: "снизить стресс",
+  understandMood: "понять настроение",
+  buildRoutine: "выстроить рутину",
+  prepareExams: "подготовиться к экзаменам",
+  feelMotivated: "почувствовать мотивацию",
+  sleepBetter: "лучше спать",
+  calm: "спокойный",
+  practical: "практичный",
+  motivating: "мотивирующий",
+  reflective: "рефлексивный",
+  couldNotLoadPrivacy: "Не удалось загрузить центр приватности.",
+  localFileStorageUnavailable:
+    "Локальное хранилище файлов недоступно на этом устройстве.",
 };
 
 const kk: Record<keyof typeof en, string> = {
@@ -1018,6 +1709,8 @@ const kk: Record<keyof typeof en, string> = {
   empty: "Бос",
   report: "Шағымдану",
   delete: "Жою",
+  add: "Қосу",
+  added: "Қосылды",
   post: "Жариялау",
   rules: "Ережелер",
   on: "Қосулы",
@@ -1062,12 +1755,44 @@ const kk: Record<keyof typeof en, string> = {
   onboardingTitle3: "Өз қарқыныңызбен дамыңыз",
   onboardingSubtitle3:
     "Күнделікті менталдық саулыққа арналған жеке әрі қарапайым құралдар.",
+  homeGreetingPrefix: "Сәлем,",
+  iFeelMood: "Мен {{mood}} сезінемін.",
   dashboardGreeting: "Қайырлы күн,",
   advice: "Кеңес:",
   startJournalingAdvice:
     "Жеке инсайттар мен кеңестер алу үшін күнделік бастаңыз.",
   needHelp: "Шұғыл көмек керек пе?",
-  crisisResources: "Дағдарыс ресурстары мен қолдауды ашу.",
+  immediateHelp: "Шұғыл көмек",
+  crisisResources: "Дағдарыс ресурстары мен қауіпсіздік қолдауын ашу.",
+  call: "Қоңырау шалу",
+  sms: "SMS",
+  trustedPerson: "Сенімді адам",
+  trustedPersonPhoneNumber: "Сенімді адамның телефон нөмірі",
+  trustedPersonHelper:
+    "Қиын сәтте тез қоңырау шалу немесе жазу үшін сенетін адамды қосыңыз.",
+  trustedPersonMissing:
+    "Алдымен жекелендіру баптауларында сенімді адамның телефон нөмірін қосыңыз.",
+  trustedPersonPhoneInvalid:
+    "Телефон нөмірін цифрлар, бос орындар, +, -, жақшалар арқылы енгізіңіз.",
+  therapistMentorMode: "Терапевт және тәлімгер байланыстары",
+  therapistMentorSubtitle:
+    "Адам қолдауы керек болса, терапевтке, тәлімгерге немесе университет қолдау қызметіне хабарласыңыз.",
+  safetyDisclaimer:
+    "SelfMind Pro шұғыл көмек қызметі емес. Өзіңізге немесе басқа біреуге зиян келтіру қаупі болса, жергілікті шұғыл қызметке дереу қоңырау шалыңыз.",
+  couldNotOpenPhone: "Бұл құрылғыда телефон қолданбасын ашу мүмкін болмады.",
+  couldNotOpenSms: "Бұл құрылғыда SMS ашу мүмкін болмады.",
+  supportContactStudentMentor: "Студент тәлімгері",
+  supportContactMentorRole: "Құрдас қолдауы",
+  supportContactStudentMentorDesc:
+    "Жаныңызда болып, келесі қадамды табуға көмектесетін сенімді кампус тәлімгері.",
+  supportContactTherapist: "Кампус терапевті",
+  supportContactTherapistRole: "Менталдық денсаулық маманы",
+  supportContactTherapistDesc:
+    "Шұғыл эмоциялық күйзеліс кезіндегі кәсіби қолдау байланысы.",
+  supportContactUniversityOffice: "Университет қолдау кеңсесі",
+  supportContactOfficeRole: "Студенттік қызметтер",
+  supportContactUniversityOfficeDesc:
+    "Жергілікті қауіпсіздік ресурстарына байланыстыра алатын әкімшілік қолдау.",
   currentMood: "Қазіргі көңіл-күй",
   noDataYet: "Әзірге дерек жоқ",
   searchHistory: "Тарихтан іздеу",
@@ -1093,11 +1818,58 @@ const kk: Record<keyof typeof en, string> = {
   bestStreak: "үздік серия",
   topEmotions: "Негізгі эмоциялар",
   emotionHeatmap: "Эмоция жылу картасы",
+  heatmapCaption:
+    "Күнделік белсенділігі мен басым эмоция бойынша соңғы қарқын.",
+  last7Days: "7 күн",
+  last30Days: "30 күн",
+  last90Days: "90 күн",
+  emotionJoy: "Қуаныш",
+  emotionCalm: "Тыныштық",
+  emotionStress: "Стресс",
+  emotionAnxiety: "Мазасыздық",
+  emotionSadness: "Мұң",
+  emotionAnger: "Ашу",
+  emotionNeutral: "Бейтарап",
+  sentimentPositive: "Позитивті",
+  sentimentNeutral: "Бейтарап",
+  sentimentNegative: "Негативті",
+  sentimentMixed: "Аралас",
+  moodBaselineInsight: "Көңіл-күй негізі",
+  moodTrendInsight: "Көңіл-күй тренді",
+  topEmotionInsight: "Негізгі эмоция",
+  journalingConsistencyInsight: "Күнделік тұрақтылығы",
+  moodVsJournalingFrequency: "Көңіл-күй және күнделік жиілігі",
+  moodVsQuizSeverity: "Көңіл-күй және сауалнама деңгейі",
+  correlationStrong: "күшті",
+  correlationModerate: "орташа",
+  correlationWeak: "әлсіз",
+  correlationMinimal: "ең аз",
+  correlationInsufficientData: "дерек жеткіліксіз",
   interpretationLayer: "Түсіндіру қабаты",
+  dashboardInsightMoodStrong:
+    "Осы кезеңдегі орташа көңіл-күйіңіз тұрақты диапазонда. Оны сақтауға қандай әдеттер көмектескенін байқаңыз.",
+  dashboardInsightMoodModerate:
+    "Орташа көңіл-күйіңіз бірқалыпты, бұл аралас кезеңді және қолдаушы үлгілерді табуға мүмкіндік бар екенін көрсетеді.",
+  dashboardInsightMoodLow:
+    "Бұл кезеңде орташа көңіл-күй төменірек, сондықтан жұмсақ қолдау және шағын күнделікті мақсаттар пайдалы болуы мүмкін.",
+  dashboardInsightTrendImproved: "Осы кезеңде көңіл-күй тренді жақсарды.",
+  dashboardInsightTrendDeclined: "Осы кезеңде көңіл-күй тренді төмендеді.",
+  dashboardInsightTrendStable:
+    "Осы кезеңде көңіл-күй тренді салыстырмалы түрде тұрақты болды.",
+  dashboardInsightTopEmotion:
+    "{{emotion}} — ең жиі анықталған эмоция, талданған жазбалардың {{percent}}%-ында кездеседі.",
+  dashboardInsightConsistency:
+    "Сіз {{total}} күннің {{active}} күнінде күнделік жаздыңыз ({{percent}}% тұрақтылық).",
+  dashboardCorrelationJournalingDesc:
+    "Орташа көңіл-күйді сол кезеңдегі күнделік жазу жиілігімен салыстырады.",
+  dashboardCorrelationQuizDesc:
+    "Орташа көңіл-күйді ұқсас кезеңдердегі аяқталған сауалнама деңгейлерімен салыстырады.",
   aiDiary: "AI күнделік ✨",
   yourThoughts: "Ойларыңыз,",
   entries: "жазба",
   noEntriesYet: "Әзірге жазба жоқ",
+  noEntriesSub:
+    "+ батырмасын басып, алғашқы күнделік жазбаңызды жазыңыз. AI көңіл-күйіңізді автоматты түрде талдайды.",
   privateEntry: "Жеке жазба",
   publicEntry: "Қоғамдық жазба",
   public: "Қоғамдық",
@@ -1112,6 +1884,7 @@ const kk: Record<keyof typeof en, string> = {
   newEntry: "Жаңа жазба",
   entryTitlePlaceholder: "Жазба тақырыбы…",
   writeFeelingPlaceholder: "Бүгін не сезінетініңізді жазыңыз…",
+  tagsPlaceholder: "Тегтер (үтір арқылы, мысалы оқу, стресс)",
   pushNotification: "Push хабарлама",
   notificationTime: "Хабарлама уақыты",
   couldNotLoadEntries: "Жазбаларды жүктеу мүмкін болмады.",
@@ -1123,6 +1896,16 @@ const kk: Record<keyof typeof en, string> = {
   insights: "Инсайттар",
   favorites: "Таңдаулылар",
   filters: "Сүзгілер",
+  startDate: "Басталу ЖЖЖЖ-АА-КК",
+  endDate: "Аяқталу ЖЖЖЖ-АА-КК",
+  moodOrEmotion: "Көңіл-күй бағасы немесе эмоция",
+  tagsComma: "Тегтер, үтір арқылы",
+  startSearchingArchive: "Мұрағаттан іздеуді бастаңыз",
+  startSearchingArchiveSub:
+    "Тарихыңызды табу үшін сөз жазыңыз немесе сүзгілерді өзгертіңіз.",
+  noFavorites: "Әзірге таңдаулы жоқ",
+  noFavoritesSub:
+    "Қайта оралғыңыз келетін ойларды сақтау үшін архив нәтижелеріндегі жұлдызшаны қолданыңыз.",
   favoritesOnly: "Тек таңдаулылар",
   newest: "жаңа",
   oldest: "ескі",
@@ -1137,11 +1920,34 @@ const kk: Record<keyof typeof en, string> = {
   quizDisclaimer:
     "Бұл сауалнама өзін-өзі түсінуге арналған және медициналық диагноз емес.",
   chooseQuiz: "Өзін-өзі түсіну сауалнамасын таңдаңыз",
+  chooseQuizSub:
+    "Бүгін түсінгіңіз келетін саланы таңдаңыз. Бастау батырмасын басқанша ештеңе басталмайды.",
+  notStarted: "Басталмаған",
+  completedRecently: "Жақында аяқталды",
+  quizType_stress_title: "Стресті тексеру",
+  quizType_stress_description:
+    "Соңғы бірнеше күндегі қысым, күресу тәсілдері және қалпына келуді ой елегінен өткізіңіз.",
+  quizType_burnout_title: "Шаршау теңгерімі",
+  quizType_burnout_description:
+    "Энергия, жүктеме, демалыс және мүмкіндік айналасындағы үлгілерді байқаңыз.",
+  quizType_emotional_awareness_title: "Эмоциялық хабардарлық",
+  quizType_emotional_awareness_description:
+    "Эмоцияларды, дене белгілерін және рефлексия үлгілерін атауды жаттықтырыңыз.",
+  quizType_study_overload_title: "Оқу жүктемесі",
+  quizType_study_overload_description:
+    "Тапсырма жүктемесін, фокус блоктарын, үзілістерді және оқу жоспарын қарап шығыңыз.",
+  quizType_motivation_title: "Мотивацияны жаңарту",
+  quizType_motivation_description:
+    "Қозғалыс, шағын жеңістер, тәртіптер және қолжетімді келесі қадамдарды зерттеңіз.",
   startFirstQuiz: "Алғашқы сауалнаманы бастау",
   startSelectedQuiz: "Таңдалған сауалнаманы бастау",
   availableQuizTypes: "Қолжетімді сауалнамалар",
   quizHistory: "Сауалнама тарихы",
+  noCompletedQuizzes:
+    "Әзірге аяқталған сауалнама жоқ. Дайын болғанда алғашқы сауалнаманы бастаңыз.",
   noQuizHistoryYet: "Сауалнама тарихы жоқ",
+  noQuizHistorySub:
+    "Ұпай трендтері, ұсыныстар және әрекет жоспарларын көру үшін алғашқы сауалнаманы аяқтаңыз.",
   submitQuiz: "Жіберу",
   interpretation: "Түсіндірме",
   trendComparison: "Тренд салыстыру",
@@ -1165,37 +1971,180 @@ const kk: Record<keyof typeof en, string> = {
   aiChat: "AI чат",
   startConversation: "Сөйлесуді бастаңыз",
   writeMessage: "Хабарлама жазыңыз…",
+  couldNotLoadChat: "Чатты жүктеу мүмкін болмады.",
+  couldNotSendMessage:
+    "Хабарламаны жіберу мүмкін болмады. Хабарыңыз чатта қалды, қайта байқап көріңіз.",
+  aiChatEmptySub:
+    "Бүгін не сезіп тұрғаныңызбен бөлісіңіз. Ассистент қолдаушы, ойлануға көмектесетін жауап береді.",
+  assistantTyping: "Ассистент жазып жатыр…",
   community: "Қауымдастық 💜",
   connectSafely: "Қауіпсіз байланысыңыз,",
   communityGuidelines: "Қауымдастық ережелері",
   supportSpaces: "Қолдау кеңістіктері",
+  communityGuidelinesIntro:
+    "Қолдауды қауіпсіз, нақты және мейірімді ұстаңыз. Модераторлар қарауы керек болса, шағым жіберіңіз.",
+  communityRule1:
+    "Қолдау көрсетіңіз: жігерлендірумен, сезімді мойындаумен және практикалық мейіріммен жауап беріңіз.",
+  communityRule2:
+    "Қудалау, өшпенділік, буллинг, графикалық контент және ұялтуға болмайды.",
+  communityRule3:
+    "Диагноз қоймаңыз және медициналық нұсқау бермеңіз; қауіп болса кәсіби немесе шұғыл көмекке жүгінуді ұсыныңыз.",
+  communityRule4:
+    "Құпиялылықты құрметтеңіз. Ешкімді жеке басын немесе мәліметтерін ашуға мәжбүрлемеңіз.",
+  communityRule5:
+    "Қауіпті, орынсыз, спам немесе зиянды контентті модераторлар тексеруі үшін шағымды пайдаланыңыз.",
+  supportSpacesBanner: "Қолдау кеңістіктері, танымалдық жарысы емес",
+  supportSpacesBannerSub:
+    "Анонимді жариялау, тақырып тегтері, шағымдар және жұмсақ реакцияларды қолданыңыз.",
   all: "Барлығы",
   noPostsYet: "Мұнда әзірге пост жоқ",
-  newSupportPost: "Жаңа қолдау посты",
+  newSupportPost: "Жаңа жазба",
   supportSpace: "Қолдау кеңістігі",
+  postPlaceholder:
+    "Ойыңызбен бөлісіңіз. Қолдау сұраңыз немесе басқаларға демеу беріңіз…",
+  topicTagsPlaceholder: "Тақырып тегтері: дедлайн, емтихан, ұйқы",
   postAnonymously: "Анонимді жариялау",
   supportThread: "Қолдау тармағы",
+  supportiveCommentPlaceholder: "Қолдау білдіретін пікір жазыңыз…",
+  firstSupportiveComment: "Алғашқы қолдау пікірін қалдырыңыз 💬",
   reportPost: "Постқа шағым",
   reportComment: "Пікірге шағым",
+  reportQueueConfirmPost: "Бұл постты модераторлар кезегіне жіберу керек пе?",
+  reportQueueConfirmComment:
+    "Бұл пікірді модераторлар кезегіне жіберу керек пе?",
   thanks: "Рақмет",
   moderatorsReview: "Модераторлар қарайды.",
   deletePost: "Постты жою",
   deletePostConfirm: "Бұл постты жою керек пе?",
   justNow: "жаңа ғана",
+  minutesAgo: "{{count}} мин. бұрын",
+  hoursAgo: "{{count}} сағ. бұрын",
+  daysAgo: "{{count}} күн бұрын",
   support: "Қолдау",
   meToo: "Мен де",
   strength: "Күш",
   helpful: "Пайдалы",
   general: "Жалпы",
+  generalSupport: "Жалпы қолдау",
+  generalTitle: "Жалпы қолдау",
+  generalDesc:
+    "Ашық рефлексия, жігерлендіру және күнделікті хал-жағдай сұрасу.",
+  openSupport: "Ашық қолдау",
   studyStress: "Оқу стрессі",
+  study_stressTitle: "Оқу стрессі",
+  study_stressDesc: "Жүктеме, дедлайндар, сабақтар және академиялық қысым.",
+  workloadDeadlines: "Жүктеме және дедлайндар",
   burnout: "Шаршау",
+  burnoutTitle: "Шаршау",
+  burnoutDesc: "Қажу, энергияның аздығы және тұрақты тәртіпке мұқтаждық.",
+  lowEnergyRecovery: "Энергия аздығы және қалпына келу",
   examAnxiety: "Емтихан үрейі",
+  exam_anxietyTitle: "Емтихан үрейі",
+  exam_anxietyDesc:
+    "Емтихан алдындағы уайым, тест қобалжуы және бағалау алдында тынышталу.",
+  preExamWorries: "Емтихан алдындағы уайым",
   motivation: "Мотивация",
+  motivationTitle: "Мотивация",
+  motivationDesc: "Жігерлендіру, шағын жеңістер және тоқыраудан шығу.",
+  smallWinsEncouragement: "Шағын жеңістер және қолдау",
+  pendingReview: "қаралуда",
+  visible: "көрінеді",
+  hidden: "жасырылған",
+  adminPanel: "Әкімші панелі",
+  adminOverview: "Шолу",
+  adminUsers: "Пайдаланушылар",
+  adminModeration: "Модерация",
+  adminSafety: "Қауіпсіздік",
+  adminContent: "Контент",
+  adminTotalUsers: "Барлық пайдаланушылар",
+  adminActiveUsers: "Белсенді пайдаланушылар",
+  adminJournalEntries: "Күнделік жазбалары",
+  adminAiChats: "AI чаттар",
+  adminAiQuizzes: "AI сауалнамалар",
+  adminCommunityPosts: "Қауымдастық жазбалары",
+  adminMostCommonMoods: "Ең жиі көңіл-күйлер",
+  adminNoMoodData: "Көңіл-күй деректері әзірге жоқ.",
+  adminMoodValue: "Көңіл-күй {{score}}/10",
+  adminTopEmotions: "Негізгі эмоциялар",
+  adminNoEmotions: "Талданған эмоциялар әзірге жоқ.",
+  adminPreviewCsv: "CSV алдын ала қарау",
+  adminDownloadCsv: "CSV есебін жүктеу",
+  adminCsvReady: "CSV дайын",
+  adminCsvShared: "CSV есебі сақтау немесе бөлісу үшін дайын.",
+  adminCsvSaved: "CSV есебі мына жерде сақталды:",
+  adminCsvPreviewHint:
+    "Қайта жүктеу немесе бөлісу үшін алдын ала көріністі басыңыз",
+  adminUsersActivity: "Пайдаланушылар және белсенділік",
+  adminRoleJoined: "Рөл: {{role}} · Қосылды {{date}}",
+  adminJournalCount: "Күнделік {{count}}",
+  adminChatsCount: "Чаттар {{count}}",
+  adminQuizzesCount: "Сауалнамалар {{count}}",
+  adminBlocked: "блокталған",
+  adminBlock: "Блоктау",
+  adminActivate: "Белсендіру",
+  adminDeactivate: "Өшіру",
+  adminChangeRole: "Рөлді өзгерту",
+  adminCommunityModeration: "Қауымдастық модерациясы",
+  adminPosts: "Жазбалар",
+  adminComments: "Пікірлер",
+  adminNoPostsModerate: "Модерацияға жазба жоқ.",
+  adminNoCommentsModerate: "Модерацияға пікір жоқ.",
+  adminApprove: "Мақұлдау",
+  adminHide: "Жасыру",
+  adminShow: "Көрсету",
+  adminSafetySignals: "Қауіпсіздік белгілері",
+  adminNoRisks: "Қауіп сөздері бойынша сәйкестік табылмады.",
+  adminJournalEntry: "күнделік жазбасы",
+  adminCommunityPost: "қауымдастық жазбасы",
+  adminUserLabel: "Пайдаланушы: {{user}}",
+  adminUnknownUser: "белгісіз",
+  adminMatched: "Сәйкес: {{keywords}}",
+  adminManagedContent: "Басқарылатын контент",
+  adminManagedContentSub: "Промпттар, онбординг кеңестері, сауалнама үлгілері",
+  adminNoContent: "Контент әзірге жоқ. Промпт жасау үшін + басыңыз.",
+  adminActive: "белсенді",
+  adminOff: "өшірулі",
+  adminCouldNotLoadData: "Әкімші деректерін жүктеу мүмкін болмады",
+  adminLoadingDashboard: "Жүйе панелі жүктелуде…",
+  adminOnly: "Бұл экран тек әкімші немесе модератор аккаунттарына қолжетімді.",
+  adminInsufficientPermissions: "Рұқсат жеткіліксіз.",
+  adminCouldNotLoadPanel: "Әкімші панелін жүктеу мүмкін болмады.",
+  adminDone: "Дайын",
+  adminActionFailed: "Әрекет орындалмады",
+  adminDeactivateUserTitle: "Пайдаланушыны өшіру керек пе?",
+  adminActivateUserTitle: "Пайдаланушыны белсендіру керек пе?",
+  adminUserAccessChange: "{{username}} {{action}}.",
+  adminLoseAccess: "қолданбаға кіру құқығын жоғалтады",
+  adminRegainAccess: "қайта кіре алады",
+  adminUserDeactivated: "Пайдаланушы өшірілді.",
+  adminUserActivated: "Пайдаланушы белсендірілді.",
+  adminChangeRoleTitle: "Рөлді өзгерту керек пе?",
+  adminSetRoleQuestion: "{{username}} үшін {{role}} рөлін орнату керек пе?",
+  adminSetRole: "{{role}} орнату",
+  adminRoleChanged: "Рөл {{role}} болып өзгерді.",
+  adminHiddenReason: "Мобильді әкімші панелінен жасырылды",
+  adminPostMarked: "Жазба {{status}} деп белгіленді.",
+  adminCommentMarked: "Пікір {{status}} деп белгіленді.",
+  adminPromptCreated: "Мотивациялық промпт жасалды.",
+  adminCsvError: "CSV қатесі",
+  adminCouldNotLoadCsv: "CSV есебін жүктеу мүмкін болмады.",
+  adminPostNumber: "Пост №{{id}}",
+  adminRoleUser: "пайдаланушы",
+  adminRoleModerator: "модератор",
+  adminRoleAdmin: "әкімші",
+  adminContentTypeMotivationalPrompt: "Мотивациялық промпт",
+  adminDefaultPromptTitle: "Күнделікті жұмсақ рефлексия",
+  adminDefaultPromptBody:
+    "Баяу тыныс алып, бүгін не қажет екенін бір шынайы сөйлеммен жазыңыз.",
   profile: "Профиль",
   account: "Аккаунт",
   memberSince: "Қосылған күні",
   reflectionTools: "Рефлексия құралдары",
+  archiveSearch: "Архив және іздеу",
+  archiveSearchDesc:
+    "Жазбаларыңызды, инсайттарды және сақталған ойларыңызды табыңыз.",
   personalizationPrefs: "Жекелендіру / AI және рефлексия",
+  editPersonalization: "Жекелендіру баптауларын өзгерту",
   aiTone: "AI тоны",
   reflectionFormat: "Рефлексия форматы",
   reminderFrequency: "Еске салу жиілігі",
@@ -1217,7 +2166,31 @@ const kk: Record<keyof typeof en, string> = {
   loadingProfile: "Профиль жүктелуде…",
   signOutConfirmTitle: "Шығу",
   signOutConfirm: "Шығуды қалайсыз ба?",
-  privacyTitle: "SelfMind Pro құпиялылық орталығы",
+  privacySaved: "Құпиялық сақталды",
+  privacySavedMessage: "Құпиялық орталығының баптаулары жаңартылды.",
+  privacyError: "Құпиялық қатесі",
+  couldNotSavePrivacy: "Құпиялық баптауларын сақтау мүмкін болмады.",
+  noticeAccepted: "Хабарлама қабылданды",
+  consentRecorded: "Келісіміңіз жазылды.",
+  consentError: "Келісім қатесі",
+  couldNotRecordConsent: "Келісімді жазу мүмкін болмады.",
+  preparingExport: "Экспорт дайындалуда…",
+  exportReady: "Экспорт дайын",
+  exportGeneratedSensitive:
+    "Экспорт сәтті жасалды. Мұны сезімтал эмоциялық дерек ретінде сақтаңыз.",
+  exportError: "Экспорт қатесі",
+  generatingPdf: "PDF есебі жасалуда…",
+  pdfGenerated: "PDF есебі жасалды.",
+  pdfGeneratedMessage:
+    "Сақтасаңыз, оны құрылғыңыздағы бөлісу орнынан қайта аша аласыз.",
+  pdfSaved: "PDF есебі сақталды",
+  sharingUnavailable:
+    "Бұл құрылғыда бөлісу қолжетімсіз. Файл уақытша мына жерде сақталды:",
+  pdfReportError: "PDF есебі қатесі",
+  couldNotGeneratePdf: "Апталық PDF есебін жасау мүмкін болмады.",
+  privacyTitle: "SelfMind Pro құпиялық орталығы",
+  privacyCenterSubtitle:
+    "Деректеріңізді, құпиялық баптауларын, экспортты және аккаунт қауіпсіздігін басқарыңыз.",
   exportInsights: "Инсайт архивін экспорттау",
   deleteAccount: "Аккаунт пен барлық деректерді жою",
   allowAiInsights: "AI инсайттарын болашақ қолдауды жекелендіруге рұқсат ету",
@@ -1262,8 +2235,7 @@ const kk: Record<keyof typeof en, string> = {
   achievementThreeDayReflectionDesc:
     "Сіз үш күн бойы рефлексия жасадыңыз. Кішкентай қадамдар маңызды.",
   achievementConsistentJournaling: "Тұрақты күнделік жүргізу",
-  achievementConsistentJournalingDesc:
-    "Сіз күнделікте 5 жазба аяқтадыңыз.",
+  achievementConsistentJournalingDesc: "Сіз күнделікте 5 жазба аяқтадыңыз.",
   achievementFirstMoodCheckIn: "Алғашқы көңіл-күй белгілеуі",
   achievementFirstMoodCheckInDesc:
     "Сіз алғашқы көңіл-күй белгілеуін жасадыңыз.",
@@ -1299,6 +2271,112 @@ const kk: Record<keyof typeof en, string> = {
   trackMood5Times: "Көңіл-күйді 5 рет бақылау",
   trackMood5TimesDesc:
     "Осы аптада күнделікпен бірге көңіл-күйді бес рет белгілеңіз.",
+  weeklySummaryEmptyDesc:
+    "Рефлексияны өзін-өзі дамытуымен байланыстыру үшін бір шағын мақсат таңдаңыз.",
+  weeklySummaryCompleteDesc:
+    "Осы аптадағы белсенді мақсаттарыңызды аяқтадыңыз. Не көмектескенін байқай беріңіз.",
+  weeklySummaryProgressDesc:
+    "Кішкентай прогресс те маңызды. Белгілеріңіз түсінікті арттыруға көмектеседі.",
+  weeklySummaryFreshDesc:
+    "Жаңа апта — бір жұмсақ қадам жасауға жаңа мүмкіндік.",
+  achievementsEntrySubtitle:
+    "Тұрақты өзін-өзі күтуге арналған жұмсақ белестер.",
+  viewAchievements: "Жетістіктерді көру",
+  achievementsUnlockedCount: "{{total}} ішінен {{unlocked}} ашылды",
+  achievementCategoryEasy: "Жеңіл қадамдар",
+  achievementCategoryMedium: "Жұмсақ тұрақтылық",
+  achievementCategoryHard: "Ұзағырақ ырғақтар",
+  achievementCategoryBalance: "Теңгерім және өзін күту",
+  achievementFirstAiChat: "Алғашқы AI чат",
+  achievementFirstAiChatDesc:
+    "Сіз AI-мен алғашқы қолдаушы әңгімені бастадыңыз.",
+  achievementFirstGoal: "Алғашқы мақсат",
+  achievementFirstGoalDesc: "Сіз алғашқы қолдаушы мақсатты қостыңыз.",
+  achievementFirstQuiz: "Алғашқы сауалнама",
+  achievementFirstQuizDesc:
+    "Сіз алғашқы AI өзіндік рефлексия сауалнамасын аяқтадыңыз.",
+  achievementFiveJournalEntries: "Бес рефлексия",
+  achievementFiveJournalEntriesDesc:
+    "Сіз өз қарқыныңызбен бес күнделік жазбасын жаздыңыз.",
+  achievementFiveMoodCheckIns: "Бес көңіл-күй белгісі",
+  achievementFiveMoodCheckInsDesc: "Сіз көңіл-күйіңізді бес рет белгіледіңіз.",
+  achievementThreeCompletedGoals: "Үш жұмсақ мақсат",
+  achievementThreeCompletedGoalsDesc:
+    "Сіз мақсаттың үш қолдаушы қадамын аяқтадыңыз.",
+  achievementThreeQuizTypes: "Үш сауалнама бағыты",
+  achievementThreeQuizTypesDesc:
+    "Сіз өзіндік рефлексия сауалнамасының үш түрін зерттедіңіз.",
+  achievementThreeAiChatDays: "Үш чат күні",
+  achievementThreeAiChatDaysDesc: "Сіз AI чатты үш түрлі күні қолдандыңыз.",
+  achievementSevenDayReflection: "7 күндік рефлексия ырғағы",
+  achievementSevenDayReflectionDesc:
+    "Сіз жеті күн қатарынан рефлексия жасадыңыз.",
+  achievementFourteenDayReflection: "14 күндік рефлексия ырғағы",
+  achievementFourteenDayReflectionDesc:
+    "Сіз он төрт күн жұмсақ рефлексия ырғағын сақтадыңыз.",
+  achievementTwentyJournalEntries: "Жиырма рефлексия",
+  achievementTwentyJournalEntriesDesc:
+    "Сіз жиырма күнделік жазбасын жасадыңыз.",
+  achievementTwentyMoodCheckIns: "Жиырма көңіл-күй белгісі",
+  achievementTwentyMoodCheckInsDesc:
+    "Сіз көңіл-күйіңізді жиырма рет белгіледіңіз.",
+  achievementTenCompletedGoals: "Он қолдаушы қадам",
+  achievementTenCompletedGoalsDesc:
+    "Сіз мақсаттардың он қадамын ұқыппен аяқтадыңыз.",
+  achievementFourWeeklySummaries: "Төрт апталық шолу",
+  achievementFourWeeklySummariesDesc:
+    "Сіз төрт апталық қорытындыны аяқтадыңыз.",
+  achievementActiveGoalsTwoWeeks: "Екі апта мақсатпен",
+  achievementActiveGoalsTwoWeeksDesc:
+    "Сіз белсенді мақсатты екі апта қолжетімді ұстадыңыз.",
+  achievementTookPause: "Үзіліс алдыңыз",
+  achievementTookPauseDesc: "Өзіңізді мәжбүрлемей, мақсатты тоқтаттыңыз.",
+  achievementGentleConsistency: "Жұмсақ тұрақтылық",
+  achievementGentleConsistencyDesc:
+    "Сіз мақсат қадамдарын үш сәтте орындадыңыз.",
+  achievementSelfCareStarter: "Өзін күту бастауы",
+  achievementSelfCareStarterDesc: "Сіз өзін күту үлгісінен мақсат қостыңыз.",
+  achievementRecoveryFocus: "Қалпына келуге назар",
+  achievementRecoveryFocusDesc:
+    "Сіз демалыс, тыныс алу немесе қалпына келу тәжірибесін бірнеше рет жасадыңыз.",
+  selfCareTemplatesSub: "Осы аптаға қосуға болатын шағын күтім тәжірибелері.",
+  goalTemplateMindfulBreathingTitle: "Зейінді тыныс алу",
+  goalTemplateMindfulBreathingDesc:
+    "Қысқа тыныс үзілісін жасап, кейін өзіңізді қалай сезінетініңізді байқаңыз.",
+  goalTemplateShortWalkTitle: "Қысқа серуен",
+  goalTemplateShortWalkDesc:
+    "Аз уақыт серуендеп немесе жұмсақ қозғалыс үзілісін жасаңыз.",
+  goalTemplateSleepReflectionTitle: "Ұйқы рефлексиясы",
+  goalTemplateSleepReflectionDesc:
+    "Демалысыңызға не көмектескенін немесе не кедергі болғанын ойлаңыз.",
+  goalTemplateGratitudeNoteTitle: "Алғыс жазбасы",
+  goalTemplateGratitudeNoteDesc:
+    "Бүгін бағалаған бір кішкентай нәрсені жазыңыз.",
+  goalTemplateWaterIntakeTitle: "Су ішу",
+  goalTemplateWaterIntakeDesc: "Үзіліс жасап, су ішіп, денеңізді тыңдаңыз.",
+  goalTemplateScreenBreakTitle: "Экраннан үзіліс",
+  goalTemplateScreenBreakDesc: "Экрандардан қысқа үзіліс жасаңыз.",
+  goalTemplateTalkToSomeoneTitle: "Біреумен сөйлесу",
+  goalTemplateTalkToSomeoneDesc:
+    "Қолдау көрсететін немесе жылы адаммен байланысыңыз.",
+  goalTemplateCustomSelfCareTitle: "Жеке өзін күту мақсаты",
+  goalTemplateCustomSelfCareDesc:
+    "Өзіңіздің қолдаушы өзін күту тәжірибеңізді жасаңыз.",
+  goalNoDescription: "Қолдаушы мақсат",
+  today: "бүгін",
+  thisWeek: "осы аптада",
+  goalProgressReflection:
+    "Сіз {{period}} {{count}} рет рефлексия жасадыңыз. Бұл тұрақты эмоциялық белгілерді қолдайды.",
+  goalProgressReflectionEmpty: "Бір рефлексия да маңызды белгі болуы мүмкін.",
+  goalProgressMood:
+    "Сіз {{period}} көңіл-күйіңізді {{count}} рет белгіледіңіз. Бұл үлгілерді байқауға көмектеседі.",
+  goalProgressMoodEmpty:
+    "Қысқа көңіл-күй белгісі аптаңызды түсінуге көмектеседі.",
+  goalProgressCompleted:
+    "Сіз бұл қолдаушы тәжірибені аяқтадыңыз. Шағын тұрақты әрекеттер маңызды.",
+  goalProgressSteps:
+    "Сіз бұл мақсатқа қарай {{count}} қадам жасадыңыз. Кішкентай прогресс те есептеледі.",
+  goalProgressEmpty: "Мүмкін болғанда бір жұмсақ келесі қадам таңдаңыз.",
   couldNotLoadQuiz: "AI сауалнамасын жүктеу мүмкін болмады.",
   couldNotStartQuiz: "Сауалнаманы бастау мүмкін болмады.",
   couldNotSubmitQuiz: "Сауалнаманы жіберу мүмкін болмады.",
@@ -1317,6 +2395,9 @@ const kk: Record<keyof typeof en, string> = {
   personalizeSelfMind: "SelfMind Pro баптаңыз",
   chooseLater: "Кейін таңдау",
   chooseLaterProfile: "Кейін профильден таңдауға болады.",
+  languageSetupTitle: "Тілді таңдаңыз",
+  languageSetupSub:
+    "Интерфейс бірден өзгереді. Кейін профильден ауыстыра аласыз.",
   supportQuestion: "Қандай қолдау керек?",
   supportQuestionSub: "Кез келген мақсатты таңдаңыз. Кейін өзгерте аласыз.",
   preferredReflectionFormat: "Қалаулы рефлексия форматы",
@@ -1356,6 +2437,44 @@ const kk: Record<keyof typeof en, string> = {
   featurePlaceholderSub:
     "Бұл бөлім backend-пен қосылады (күнделік, чат және т.б.).",
   featureComingSoon: "Жақында",
+  apply: "Қолдану",
+  dateRange: "Күндер аралығы",
+  fromDate: "Басталу күні",
+  toDate: "Аяқталу күні",
+  selectDateRange: "Күндер аралығын таңдаңыз",
+  personalization: "Жекелендіру",
+  profileSettings: "Профиль баптаулары",
+  personalizationDesc:
+    "AI тонын, эмоциялық мақсаттарды, тілді және сенімді адам байланысын таңдаңыз.",
+  couldNotLoadPreferences: "Баптауларды жүктеу мүмкін болмады.",
+  preferencesSaved: "Баптаулар сақталды",
+  preferencesSavedMessage: "Жекелендіру баптаулары жаңартылды.",
+  aiToneAffectsChat:
+    "AI тоны мен эмоциялық мақсаттар болашақ AI чат жауаптарын бағыттайды.",
+  privacyDefaults: "Әдепкі құпиялық",
+  privateDiaryDefaultDesc:
+    "Жаңа күнделік жазбалары жазу кезінде өзгертпесеңіз жеке болып басталады.",
+  anonymousCommunityDefaultDesc:
+    "Жаңа қауымдастық посттары мен пікірлері өзгертпесеңіз анонимді болып басталады.",
+  allowAiInsightsDesc:
+    "AI инсайттары мен эмоциялық үлгілерге қолдауды жекелендіруге рұқсат ету.",
+  exportReportsDesc:
+    "JSON экспорттарын немесе апталық PDF есепті осы құрылғыдан сақтап, бөлісіңіз.",
+  emotionalDataNotice:
+    "Күнделік жазбалары, көңіл-күй бағалары, анықталған эмоциялар, AI рефлексиялары, сауалнама жауаптары, чат хабарламалары және қауіпсіздік белгілері сезімтал менталдық және эмоциялық үлгілерді ашуы мүмкін. SelfMind Pro оларды тек күнделік, аналитика, қауіпсіздік, еске салғыштар және жекелендірілген AI мүмкіндіктерін ұсыну үшін қолданады.",
+  reduceStress: "стресті азайту",
+  understandMood: "көңіл-күйді түсіну",
+  buildRoutine: "тәртіп қалыптастыру",
+  prepareExams: "емтиханға дайындалу",
+  feelMotivated: "мотивацияны сезіну",
+  sleepBetter: "жақсырақ ұйықтау",
+  calm: "сабырлы",
+  practical: "практикалық",
+  motivating: "ынталандыратын",
+  reflective: "ойландырғыш",
+  couldNotLoadPrivacy: "Құпиялылық орталығын жүктеу мүмкін болмады.",
+  localFileStorageUnavailable:
+    "Бұл құрылғыда жергілікті файл сақтау қолжетімсіз.",
 };
 
 const translations: Record<AppLanguage, Record<keyof typeof en, string>> = {
@@ -1391,18 +2510,24 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setLanguage = useCallback(async (next: AppLanguage) => {
-    await AsyncStorage.setItem(LANGUAGE_KEY, next);
     setLanguageState(next);
+    await AsyncStorage.setItem(LANGUAGE_KEY, next);
   }, []);
 
   const t = useCallback(
-    (key: string) => {
+    (key: string, params?: Record<string, string | number>) => {
       const dictionary = translations[language as AppLanguage] as Record<
         string,
         string
       >;
       const fallback = translations.en as Record<string, string>;
-      return dictionary[key] || fallback[key] || key;
+      const template = dictionary[key] || fallback[key] || key;
+      if (!params) return template;
+      return Object.entries(params).reduce(
+        (text, [paramKey, value]) =>
+          text.replace(new RegExp(`{{${paramKey}}}`, "g"), String(value)),
+        template,
+      );
     },
     [language],
   );

@@ -10,11 +10,14 @@ export type RootStackParamList = {
   ArchiveSearch:
     | { initialTab?: "journals" | "insights" | "favorites" }
     | undefined;
+  ProfilePersonalization: undefined;
+  ProfilePrivacyCenter: undefined;
+  ProfileReminders: undefined;
 };
 
 export type HomeStackParamList = {
   HomeMain: undefined;
-  AiDiary: { entryDate?: string; notificationEnabled?: boolean } | undefined;
+  AiDiary: { entryDate?: string } | undefined;
   AiChat: undefined;
   AiQuiz: undefined;
   Safety: undefined;

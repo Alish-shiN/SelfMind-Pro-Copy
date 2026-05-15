@@ -38,8 +38,8 @@ CRISIS_RESOURCES = [
     {
         "title": "Emergency services",
         "description": "If there is immediate danger, contact local emergency services now.",
-        "action_label": "Call 911",
-        "action_value": "911",
+        "action_label": "Call 112",
+        "action_value": "112",
         "country": "US",
     },
     {

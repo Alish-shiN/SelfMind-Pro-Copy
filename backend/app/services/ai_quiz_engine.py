@@ -48,6 +48,98 @@ QUESTION_BANK = {
 }
 
 STANDARD_OPTIONS = ["Never", "Rarely", "Sometimes", "Often", "Almost always"]
+LOCALIZED_OPTIONS = {
+    "en": STANDARD_OPTIONS,
+    "ru": ["Никогда", "Редко", "Иногда", "Часто", "Почти всегда"],
+    "kk": ["Ешқашан", "Сирек", "Кейде", "Жиі", "Әрдайым дерлік"],
+}
+QUESTION_BANK_LOCALIZED = {
+    "ru": {
+        "stress": [
+            "Как часто за последние несколько дней вы чувствовали ментальную перегрузку?",
+            "Насколько сложно было расслабиться, думая об обязанностях?",
+            "Как часто мысли возвращались к одному и тому же стрессовому вопросу?",
+            "Насколько управляемой ощущалась текущая нагрузка?",
+            "Как часто вы замечали напряжение в теле?",
+            "Насколько вас поддерживают привычки или люди рядом?",
+        ],
+        "burnout": [
+            "Как часто повседневные задачи эмоционально истощали вас?",
+            "Сколько времени на восстановление было между обязанностями?",
+            "Как часто вы чувствовали отстраненность от учебы или дел, которые обычно важны?",
+            "Насколько устойчивой была энергия в течение дня?",
+            "Насколько реалистичными казались ожидания к себе в последнее время?",
+            "Как часто вы защищали время для отдыха или приятных занятий?",
+        ],
+        "emotional_awareness": [
+            "Насколько легко было назвать то, что вы чувствуете?",
+            "Как часто вы замечали телесные сигналы, связанные с эмоциями?",
+            "Как часто вы делали паузу перед реакцией на сильное чувство?",
+            "Насколько ясно вы связываете эмоции с недавними событиями?",
+            "Как часто вы писали или говорили о своих чувствах?",
+            "Насколько комфортно вам оставаться с смешанными эмоциями?",
+        ],
+        "study_overload": [
+            "Как часто учебные задачи казались слишком сложными для организации?",
+            "Насколько ясны ваши главные приоритеты на сегодня?",
+            "Как часто вы делали короткие перерывы во время учебных блоков?",
+            "Насколько управляемыми кажутся ближайшие дедлайны?",
+            "Как часто отвлечения мешали учебе?",
+            "Насколько уверенно вы можете попросить помощи или изменить план?",
+        ],
+        "motivation": [
+            "Насколько легко было начинать важные задачи?",
+            "Как часто вы замечали маленькие победы на этой неделе?",
+            "Насколько ваши задачи связаны с чем-то значимым?",
+            "Насколько стабильными были ваши рутины в последнее время?",
+            "Как часто вы избегали задач, потому что они казались слишком большими?",
+            "Насколько вы уверены в одном достижимом следующем шаге?",
+        ],
+    },
+    "kk": {
+        "stress": [
+            "Соңғы бірнеше күнде ойыңыз шамадан тыс жүктелгенін қаншалықты жиі сездіңіз?",
+            "Міндеттеріңіз туралы ойлағанда босаңсу қаншалықты қиын болды?",
+            "Ойларыңыз бір стресс мәселесіне қаншалықты жиі қайта оралды?",
+            "Қазіргі жүктемеңіз қаншалықты басқарылатын болып сезілді?",
+            "Денеңіздегі кернеуді қаншалықты жиі байқадыңыз?",
+            "Әдеттеріңіз немесе айналаңыздағы адамдар сізді қаншалықты қолдайды?",
+        ],
+        "burnout": [
+            "Күнделікті тапсырмалардан кейін эмоциялық шаршауды қаншалықты жиі сездіңіз?",
+            "Міндеттер арасында қалпына келуге қанша уақыт болды?",
+            "Әдетте маңызды оқу немесе жұмысқа немқұрайлықты қаншалықты жиі сездіңіз?",
+            "Күні бойы энергияңыз қаншалықты тұрақты болды?",
+            "Соңғы кезде өзіңізге қоятын күтулер қаншалықты шынайы болды?",
+            "Демалысқа немесе ұнайтын істерге уақытты қаншалықты жиі қорғадыңыз?",
+        ],
+        "emotional_awareness": [
+            "Не сезіп тұрғаныңызды атау қаншалықты оңай болды?",
+            "Эмоциялармен байланысты дене белгілерін қаншалықты жиі байқадыңыз?",
+            "Күшті сезімге жауап берер алдында қаншалықты жиі кідірдіңіз?",
+            "Эмоцияларды соңғы оқиғалармен қаншалықты анық байланыстыра аласыз?",
+            "Сезімдеріңіз туралы қаншалықты жиі жаздыңыз немесе сөйлестіңіз?",
+            "Аралас эмоциялармен отыру сізге қаншалықты жайлы?",
+        ],
+        "study_overload": [
+            "Оқу тапсырмаларын ұйымдастыру тым көп болып қаншалықты жиі сезілді?",
+            "Бүгінгі негізгі басымдықтарыңыз қаншалықты анық?",
+            "Оқу блоктары кезінде қысқа үзілістерді қаншалықты жиі жасадыңыз?",
+            "Алдағы дедлайндар қаншалықты басқарылатын көрінеді?",
+            "Алаңдататын нәрселер оқуды қаншалықты жиі қиындатты?",
+            "Көмек сұрауға немесе жоспарыңызды өзгертуге қаншалықты сенімдісіз?",
+        ],
+        "motivation": [
+            "Маңызды тапсырмаларды бастау қаншалықты оңай болды?",
+            "Осы аптада шағын жетістіктерді қаншалықты жиі байқадыңыз?",
+            "Тапсырмаларыңыз мағыналы нәрсемен қаншалықты байланысты?",
+            "Соңғы кезде тәртіптеріңіз қаншалықты тұрақты болды?",
+            "Тым үлкен болып көрінгендіктен тапсырмалардан қаншалықты жиі қашқақтадыңыз?",
+            "Бір қолжетімді келесі қадамға қаншалықты сенімдісіз?",
+        ],
+    },
+}
+LANGUAGE_NAMES = {"en": "English", "ru": "Russian", "kk": "Kazakh"}
 REVERSED_PROMPTS = {
     "How manageable",
     "How supported",
@@ -66,13 +158,13 @@ REVERSED_PROMPTS = {
 
 class AIQuizEngine:
     def generate_questions(
-        self, quiz_type: str, context: dict | None = None
+        self, quiz_type: str, context: dict | None = None, language: str = "en"
     ) -> list[dict]:
         quiz_type = normalize_quiz_type(quiz_type)
         try:
-            return self._generate_questions_openai(quiz_type, context)
+            return self._generate_questions_openai(quiz_type, context, language)
         except Exception:
-            return self._fallback_questions(quiz_type)
+            return self._fallback_questions(quiz_type, language)
 
     def analyze_answers(
         self,
@@ -80,29 +172,34 @@ class AIQuizEngine:
         questions: list[dict],
         answers: list[dict],
         context: dict | None = None,
+        language: str = "en",
     ) -> dict:
         quiz_type = normalize_quiz_type(quiz_type)
         try:
             result = self._analyze_answers_openai(
-                quiz_type, questions, answers, context
+                quiz_type, questions, answers, context, language
             )
         except Exception:
-            result = self._fallback_result(quiz_type, answers)
-        return self._enrich_result(quiz_type, result)
+            result = self._fallback_result(quiz_type, answers, language)
+        return self._enrich_result(quiz_type, result, language)
 
     def _generate_questions_openai(
-        self, quiz_type: str, context: dict | None = None
+        self, quiz_type: str, context: dict | None = None, language: str = "en"
     ) -> list[dict]:
         personalization_context = json.dumps(
             context or {}, ensure_ascii=False, default=str
         )
         config = QUIZ_TYPES[quiz_type]
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        language_name = LANGUAGE_NAMES[language_code]
+        options = LOCALIZED_OPTIONS[language_code]
 
         prompt = f"""
 You are generating an adaptive self-reflection quiz for a journaling app.
 
 Return STRICT JSON ARRAY only.
 Generate exactly 6 questions for quiz type: {quiz_type} ({config['title']}).
+Language: {language_name}. Write every question and answer option in {language_name}.
 Personalization context JSON: {personalization_context}
 
 Each item must follow:
@@ -110,7 +207,7 @@ Each item must follow:
   "question_index": 1,
   "question_text": "string",
   "answer_type": "scale",
-  "options": ["Never", "Rarely", "Sometimes", "Often", "Almost always"]
+  "options": {json.dumps(options, ensure_ascii=False)}
 }}
 
 Rules:
@@ -119,6 +216,7 @@ Rules:
 - No diagnosis and no claims that the app detects medical conditions
 - All questions must be suitable for university-age users
 - Use only answer_type = "scale"
+- Use exactly these localized options for every question: {json.dumps(options, ensure_ascii=False)}
 """
 
         response = client.responses.create(
@@ -134,6 +232,7 @@ Rules:
         questions: list[dict],
         answers: list[dict],
         context: dict | None = None,
+        language: str = "en",
     ) -> dict:
         payload = {
             "quiz_type": quiz_type,
@@ -141,6 +240,9 @@ Rules:
             "answers": answers,
             "context": context or {},
         }
+
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        language_name = LANGUAGE_NAMES[language_code]
 
         prompt = f"""
 You are a supportive self-reflection assistant.
@@ -155,6 +257,7 @@ Analyze this completed quiz and return STRICT JSON:
 }}
 
 Rules:
+- Write insight, recommendation, and practice in {language_name}.
 - No diagnosis and no medical claims
 - Non-clinical, supportive, non-judgmental language
 - Tie the interpretation to quiz type: {quiz_type}
@@ -177,7 +280,9 @@ Assessment data:
             "severity_level": parsed.get("severity_level", "moderate"),
             "insight": parsed.get(
                 "insight",
-                f"Your answers offer a useful snapshot of your {quiz_title(quiz_type).lower()}.",
+                self._interpretation(
+                    quiz_type, parsed.get("severity_level", "moderate"), language_code
+                ),
             ),
             "recommendation": parsed.get(
                 "recommendation",
@@ -188,8 +293,12 @@ Assessment data:
             ),
         }
 
-    def _fallback_questions(self, quiz_type: str) -> list[dict]:
-        prompts = QUESTION_BANK.get(quiz_type, QUESTION_BANK["stress"])
+    def _fallback_questions(self, quiz_type: str, language: str = "en") -> list[dict]:
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        prompts = QUESTION_BANK_LOCALIZED.get(language_code, {}).get(
+            quiz_type, QUESTION_BANK.get(quiz_type, QUESTION_BANK["stress"])
+        )
+        options = LOCALIZED_OPTIONS[language_code]
         questions = []
         for index, prompt in enumerate(prompts, start=1):
             questions.append(
@@ -197,12 +306,15 @@ Assessment data:
                     "question_index": index,
                     "question_text": prompt,
                     "answer_type": "scale",
-                    "options": STANDARD_OPTIONS,
+                    "options": options,
                 }
             )
         return questions
 
-    def _fallback_result(self, quiz_type: str, answers: list[dict]) -> dict:
+    def _fallback_result(
+        self, quiz_type: str, answers: list[dict], language: str = "en"
+    ) -> dict:
+        language_code = language if language in LANGUAGE_NAMES else "en"
         numeric_scores = [a.get("score", 0) or 0 for a in answers]
         avg = sum(numeric_scores) / len(numeric_scores) if numeric_scores else 0
         overall = round((avg / 4) * 100, 2)
@@ -219,22 +331,31 @@ Assessment data:
         return {
             "overall_score": overall,
             "severity_level": severity,
-            "insight": self._interpretation(quiz_type, severity),
-            "recommendation": self._recommendations(quiz_type, severity)[0],
-            "practice": self._micro_practices(quiz_type, severity)[0]["description"],
+            "insight": self._interpretation(quiz_type, severity, language),
+            "recommendation": self._recommendations(quiz_type, severity, language_code)[
+                0
+            ],
+            "practice": self._micro_practices(quiz_type, severity, language_code)[0][
+                "description"
+            ],
         }
 
-    def _enrich_result(self, quiz_type: str, result: dict) -> dict:
+    def _enrich_result(
+        self, quiz_type: str, result: dict, language: str = "en"
+    ) -> dict:
         score = max(0.0, min(100.0, float(result.get("overall_score", 0))))
         severity = self._normalize_level(result.get("severity_level"), score)
-        recommendations = self._recommendations(quiz_type, severity)
-        micro_practices = self._micro_practices(quiz_type, severity)
-        action_plan = self._action_plan(quiz_type, severity, micro_practices)
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        recommendations = self._recommendations(quiz_type, severity, language_code)
+        micro_practices = self._micro_practices(quiz_type, severity, language_code)
+        action_plan = self._action_plan(
+            quiz_type, severity, micro_practices, language_code
+        )
         return {
             "overall_score": score,
             "severity_level": severity,
             "insight": result.get("insight")
-            or self._interpretation(quiz_type, severity),
+            or self._interpretation(quiz_type, severity, language),
             "recommendation": result.get("recommendation") or recommendations[0],
             "practice": result.get("practice") or micro_practices[0]["description"],
             "recommendations": recommendations,
@@ -253,14 +374,100 @@ Assessment data:
             return "elevated"
         return "high"
 
-    def _interpretation(self, quiz_type: str, level: str) -> str:
+    def _interpretation(self, quiz_type: str, level: str, language: str = "en") -> str:
         title = quiz_title(quiz_type).lower()
+        language_code = language if language in LANGUAGE_NAMES else "en"
+        localized_levels = {
+            "ru": {
+                "low": "низкий",
+                "moderate": "умеренный",
+                "elevated": "повышенный",
+                "high": "высокий",
+            },
+            "kk": {
+                "low": "төмен",
+                "moderate": "орташа",
+                "elevated": "жоғарылау",
+                "high": "жоғары",
+            },
+        }
+        localized_titles = {
+            "ru": {
+                "stress": "проверки стресса",
+                "burnout": "баланса выгорания",
+                "emotional_awareness": "эмоциональной осознанности",
+                "study_overload": "учебной перегрузки",
+                "motivation": "перезапуска мотивации",
+            },
+            "kk": {
+                "stress": "стресті тексеру",
+                "burnout": "шаршау теңгерімі",
+                "emotional_awareness": "эмоциялық хабардарлық",
+                "study_overload": "оқу жүктемесі",
+                "motivation": "мотивацияны жаңарту",
+            },
+        }
+        if language_code == "ru":
+            return (
+                f"Результат раздела «{localized_titles['ru'].get(quiz_type, title)}» — "
+                f"{localized_levels['ru'].get(level, level)}. Это снимок для саморефлексии, "
+                "не диагноз; он может помочь выбрать один поддерживающий следующий шаг."
+            )
+        if language_code == "kk":
+            return (
+                f"«{localized_titles['kk'].get(quiz_type, title)}» нәтижесі — "
+                f"{localized_levels['kk'].get(level, level)}. Бұл диагноз емес, өзіндік рефлексияға арналған қысқа көрініс; "
+                "ол бір қолдаушы келесі қадамды таңдауға көмектеседі."
+            )
         return (
             f"Your {title} result is {level}. This is a self-reflection snapshot, "
             "not a diagnosis, and it can help you choose one supportive next step."
         )
 
-    def _recommendations(self, quiz_type: str, level: str) -> list[str]:
+    def _recommendations(
+        self, quiz_type: str, level: str, language: str = "en"
+    ) -> list[str]:
+        localized = {
+            "ru": {
+                "low": [
+                    "Сохраните привычки, которые помогают вам чувствовать устойчивость.",
+                    "Продолжайте короткие проверки состояния, чтобы замечать полезные паттерны.",
+                ],
+                "moderate": [
+                    "Выберите один небольшой поддерживающий шаг на сегодня.",
+                    "Сделайте короткую паузу и сократите список задач до самого важного.",
+                ],
+                "elevated": [
+                    "По возможности уменьшите нагрузку и попросите практической поддержки.",
+                    "Добавьте короткие перерывы до того, как напряжение усилится.",
+                ],
+                "high": [
+                    "Снизьте нагрузку, обратитесь к доверенному человеку и рассмотрите профессиональную поддержку.",
+                    "Сфокусируйтесь на необходимом и разрешите себе паузу.",
+                ],
+            },
+            "kk": {
+                "low": [
+                    "Өзіңізді тұрақты сезінуге көмектесетін әдеттерді сақтаңыз.",
+                    "Пайдалы үлгілерді байқау үшін қысқа күй тексерісін жалғастырыңыз.",
+                ],
+                "moderate": [
+                    "Бүгінге бір шағын қолдаушы қадам таңдаңыз.",
+                    "Қысқа үзіліс жасап, тапсырмалар тізімін ең маңыздысына дейін азайтыңыз.",
+                ],
+                "elevated": [
+                    "Мүмкін болса жүктемені азайтып, практикалық қолдау сұраңыз.",
+                    "Кернеу күшеймей тұрып қысқа үзілістер қосыңыз.",
+                ],
+                "high": [
+                    "Жүктемені азайтып, сенімді адамға хабарласыңыз және кәсіби қолдауды қарастырыңыз.",
+                    "Ең қажеттісіне назар аударып, өзіңізге үзіліс беріңіз.",
+                ],
+            },
+        }
+        if language in localized:
+            return localized[language][level]
+
         recommendations = {
             "stress": {
                 "low": [
@@ -355,7 +562,42 @@ Assessment data:
         }
         return recommendations.get(quiz_type, recommendations["stress"])[level]
 
-    def _micro_practices(self, quiz_type: str, level: str) -> list[dict]:
+    def _micro_practices(
+        self, quiz_type: str, level: str, language: str = "en"
+    ) -> list[dict]:
+        localized_common = {
+            "ru": [
+                {
+                    "title": "2 минуты дыхания",
+                    "description": "Медленно вдохните на 4 счета и выдохните на 6 счетов в течение двух минут.",
+                    "estimated_time": "2 мин",
+                    "action": None,
+                },
+                {
+                    "title": "Короткая запись",
+                    "description": "Напишите три предложения о том, что сейчас тяжело, и один следующий шаг.",
+                    "estimated_time": "3 мин",
+                    "action": "journal",
+                },
+            ],
+            "kk": [
+                {
+                    "title": "2 минуттық тыныс алу",
+                    "description": "Екі минут бойы 4 санаққа баяу дем алып, 6 санаққа дем шығарыңыз.",
+                    "estimated_time": "2 мин",
+                    "action": None,
+                },
+                {
+                    "title": "Қысқа жазба",
+                    "description": "Қазір не ауыр екенін үш сөйлеммен және бір келесі қадамды жазыңыз.",
+                    "estimated_time": "3 мин",
+                    "action": "journal",
+                },
+            ],
+        }
+        if language in localized_common:
+            return localized_common[language]
+
         common = [
             {
                 "title": "2-minute breathing exercise",
@@ -446,8 +688,46 @@ Assessment data:
         return practices[:4] if level in {"elevated", "high"} else practices[:3]
 
     def _action_plan(
-        self, quiz_type: str, level: str, micro_practices: list[dict]
+        self,
+        quiz_type: str,
+        level: str,
+        micro_practices: list[dict],
+        language: str = "en",
     ) -> dict:
+        localized_plans = {
+            "ru": {
+                "steps": [
+                    "Назовите главную нагрузку, на которую можете повлиять сегодня.",
+                    "Выберите один реалистичный следующий шаг.",
+                    "Сделайте короткую дыхательную паузу перед новой задачей.",
+                ],
+                "prompt": "Что я могу сделать хотя бы на 10% легче сегодня?",
+                "goal": "Мягкая цель: сделать 3 короткие паузы на этой неделе",
+                "message": "Этот план — бережная отправная точка. Подстройте его под свою реальную энергию и контекст.",
+            },
+            "kk": {
+                "steps": [
+                    "Бүгін ықпал ете алатын негізгі қысымды атаңыз.",
+                    "Бір шынайы келесі қадам таңдаңыз.",
+                    "Келесі іске ауыспас бұрын қысқа тыныс алу үзілісін жасаңыз.",
+                ],
+                "prompt": "Бүгін нені кемінде 10% жеңілдете аламын?",
+                "goal": "Жұмсақ мақсат: осы аптада 3 қысқа үзіліс жасау",
+                "message": "Бұл жоспар — жұмсақ бастапқы нүкте. Оны нақты қуатыңыз бен жағдайыңызға бейімдеңіз.",
+            },
+        }
+        if language in localized_plans:
+            plan = localized_plans[language]
+            return {
+                "quiz_type": quiz_type,
+                "result_level": level,
+                "steps": plan["steps"],
+                "micro_practices": micro_practices,
+                "reflection_prompt": plan["prompt"],
+                "suggested_goal": plan["goal"],
+                "supportive_message": plan["message"],
+            }
+
         steps = {
             "stress": [
                 "Name the main pressure you can influence today.",

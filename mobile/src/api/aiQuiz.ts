@@ -113,11 +113,11 @@ export function getAiQuizTypes() {
   return apiFetch<AiQuizType[]>('/ai-quiz/types', { method: 'GET', auth: true });
 }
 
-export function generateAiQuiz(quiz_type = 'stress') {
+export function generateAiQuiz(quiz_type = 'stress', language = 'en') {
   return apiFetch<AiQuizGenerateResponse>('/ai-quiz/generate', {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ quiz_type }),
+    body: JSON.stringify({ quiz_type, language }),
   });
 }
 
@@ -128,11 +128,11 @@ export function getAiQuizSession(session_id: number) {
   });
 }
 
-export function submitAiQuiz(session_id: number, answers: AiQuizSubmitAnswer[]) {
+export function submitAiQuiz(session_id: number, answers: AiQuizSubmitAnswer[], language = 'en') {
   return apiFetch<AiQuizResultDetail>(`/ai-quiz/${session_id}/submit`, {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({ answers, language }),
   });
 }
 

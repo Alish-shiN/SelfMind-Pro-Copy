@@ -22,6 +22,6 @@ class DashboardRepository:
             self.db.query(JournalAnalysis)
             .join(JournalEntry, JournalAnalysis.journal_entry_id == JournalEntry.id)
             .filter(JournalEntry.user_id == user_id)
-            .order_by(JournalAnalysis.created_at.desc())
+            .order_by(JournalEntry.created_at.desc(), JournalAnalysis.created_at.desc())
             .first()
         )

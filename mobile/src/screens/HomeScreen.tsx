@@ -40,7 +40,7 @@ export function HomeScreen({ navigation }: Props) {
       setData(d);
     } catch (e) {
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        await signOut();
+        await signOut("sessionExpired");
         setError(null);
         return;
       }
@@ -66,6 +66,7 @@ export function HomeScreen({ navigation }: Props) {
   const moodLine = formatMoodLine(
     analysis?.emotion_label,
     analysis?.sentiment_label,
+    t,
   );
   const emoji = moodEmoji(analysis?.emotion_label, analysis?.sentiment_label);
   const advice =

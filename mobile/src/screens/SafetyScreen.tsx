@@ -19,6 +19,7 @@ import type { HomeStackParamList } from "../navigation/types";
 import { colors } from "../theme/colors";
 import { useTranslation } from "../i18n/I18nContext";
 import { getTrustedPersonPhone } from "../lib/storage";
+import { getCurrentUser } from "../api/user";
 
 type Props = NativeStackScreenProps<HomeStackParamList, "Safety">;
 
@@ -98,15 +99,16 @@ export function SafetyScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [resourceData, savedTrustedPhone] = await Promise.all([
+      const [resourceData, user] = await Promise.all([
         getCrisisResources(),
-        getTrustedPersonPhone(),
+        getCurrentUser(),
       ]);
-      setResources(resourceData);
+      const savedTrustedPhone = await getTrustedPersonPhone(user.id);
+      setResources(resourceData.filter((resource) => resource.action_value !== "trusted_person"));
       setTrustedPhone(savedTrustedPhone);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t("couldNotLoadSafety"));
-      setTrustedPhone(await getTrustedPersonPhone().catch(() => null));
+      setTrustedPhone(null);
     } finally {
       setLoading(false);
     }

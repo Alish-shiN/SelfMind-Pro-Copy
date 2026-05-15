@@ -1,6 +1,6 @@
 from collections import Counter
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.community_comment import CommunityComment
@@ -42,10 +42,26 @@ class CommunityRepository:
         support_space: str | None = None,
         topic_tag: str | None = None,
     ) -> list[CommunityPost]:
+        reported_post_ids = (
+            self.db.query(CommunityReport.target_id)
+            .filter(
+                CommunityReport.target_type == "post",
+                CommunityReport.status == "open",
+            )
+            .subquery()
+        )
         query = (
             self.db.query(CommunityPost)
             .options(joinedload(CommunityPost.user), joinedload(CommunityPost.comments))
-            .filter(CommunityPost.moderation_status == "visible")
+            .filter(
+                or_(
+                    CommunityPost.moderation_status == "visible",
+                    and_(
+                        CommunityPost.moderation_status == "pending_review",
+                        CommunityPost.id.in_(reported_post_ids),
+                    ),
+                )
+            )
         )
         if support_space:
             query = query.filter(CommunityPost.support_space == support_space)
@@ -92,12 +108,26 @@ class CommunityRepository:
         return comment
 
     def get_comments_by_post_id(self, post_id: int) -> list[CommunityComment]:
+        reported_comment_ids = (
+            self.db.query(CommunityReport.target_id)
+            .filter(
+                CommunityReport.target_type == "comment",
+                CommunityReport.status == "open",
+            )
+            .subquery()
+        )
         return (
             self.db.query(CommunityComment)
             .options(joinedload(CommunityComment.user))
             .filter(
                 CommunityComment.post_id == post_id,
-                CommunityComment.moderation_status == "visible",
+                or_(
+                    CommunityComment.moderation_status == "visible",
+                    and_(
+                        CommunityComment.moderation_status == "pending_review",
+                        CommunityComment.id.in_(reported_comment_ids),
+                    ),
+                ),
             )
             .order_by(CommunityComment.created_at.asc())
             .all()
@@ -166,14 +196,27 @@ class CommunityRepository:
                 CommunityReaction.user_id == user_id,
                 CommunityReaction.target_type == target_type,
                 CommunityReaction.target_id == target_id,
-                CommunityReaction.reaction_type == reaction_type,
             )
-            .first()
+            .order_by(CommunityReaction.created_at.asc())
+            .all()
         )
-        if existing:
-            self.db.delete(existing)
+        matching = next(
+            (reaction for reaction in existing if reaction.reaction_type == reaction_type),
+            None,
+        )
+        if matching:
+            for duplicate in existing:
+                self.db.delete(duplicate)
             self.db.commit()
             return False
+
+        if existing:
+            primary = existing[0]
+            primary.reaction_type = reaction_type
+            for duplicate in existing[1:]:
+                self.db.delete(duplicate)
+            self.db.commit()
+            return True
 
         reaction = CommunityReaction(
             user_id=user_id,
@@ -206,6 +249,26 @@ class CommunityRepository:
         result = {target_id: self.empty_reactions() for target_id in target_ids}
         for target_id, reaction_type, count in rows:
             result[target_id][reaction_type] = count
+        return result
+
+
+    def get_user_reactions(
+        self, user_id: int | None, target_type: str, target_ids: list[int]
+    ) -> dict[int, list[str]]:
+        if not user_id or not target_ids:
+            return {target_id: [] for target_id in target_ids}
+        rows = (
+            self.db.query(CommunityReaction.target_id, CommunityReaction.reaction_type)
+            .filter(
+                CommunityReaction.user_id == user_id,
+                CommunityReaction.target_type == target_type,
+                CommunityReaction.target_id.in_(target_ids),
+            )
+            .all()
+        )
+        result = {target_id: [] for target_id in target_ids}
+        for target_id, reaction_type in rows:
+            result.setdefault(target_id, []).append(reaction_type)
         return result
 
     def get_report_counts(
