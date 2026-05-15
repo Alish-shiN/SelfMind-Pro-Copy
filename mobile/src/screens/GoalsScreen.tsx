@@ -1122,6 +1122,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentGreen,
     borderColor: colors.accentGreen,
   },
+  templateChipPressed: { opacity: 0.78, transform: [{ scale: 0.97 }] },
+  templateChipAdded: { backgroundColor: colors.accentGreen, borderColor: colors.accentGreen },
   templateChipText: { color: colors.coral, fontWeight: "900", fontSize: 12 },
   templateChipTextAdded: { color: "#fff" },
   addBadge: {
