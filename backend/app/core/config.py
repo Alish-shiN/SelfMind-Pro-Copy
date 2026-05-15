@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # Local development can still use separate POSTGRES_* variables.
     DATABASE_URL: str | None = None
     DB_SSL_MODE: str | None = None
+    REDIS_URL: str | None = None
 
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
@@ -52,7 +53,15 @@ class Settings(BaseSettings):
             parsed = urlsplit(url)
             query = dict(parse_qsl(parsed.query, keep_blank_values=True))
             query["sslmode"] = self.DB_SSL_MODE
-            url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), parsed.fragment))
+            url = urlunsplit(
+                (
+                    parsed.scheme,
+                    parsed.netloc,
+                    parsed.path,
+                    urlencode(query),
+                    parsed.fragment,
+                )
+            )
 
         return url
 

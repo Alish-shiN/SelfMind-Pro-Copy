@@ -10,6 +10,13 @@ from app.schemas.reminders import (
     ReminderPreferenceResponse,
     ReminderPreferenceUpdate,
 )
+from app.services.cache_service import (
+    CacheNamespace,
+    CacheTTL,
+    cache_get_or_set,
+    invalidate_user_cache,
+    user_cache_key,
+)
 from app.services.reminder_service import ReminderService
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
@@ -20,7 +27,15 @@ def get_preferences(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ReminderService(db).get_or_create_preferences(current_user)
+    key = user_cache_key(
+        CacheNamespace.PROFILE, current_user.id, "reminder-preferences"
+    )
+    return cache_get_or_set(
+        key,
+        CacheTTL.PROFILE,
+        lambda: ReminderService(db).get_or_create_preferences(current_user),
+        response_model=ReminderPreferenceResponse,
+    )
 
 
 @router.patch("/preferences", response_model=ReminderPreferenceResponse)
@@ -29,7 +44,9 @@ def update_preferences(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ReminderService(db).update_preferences(current_user, payload)
+    preferences = ReminderService(db).update_preferences(current_user, payload)
+    _invalidate_reminder_caches(current_user.id)
+    return preferences
 
 
 @router.post("/push-token", response_model=ReminderPreferenceResponse)
@@ -38,7 +55,9 @@ def register_push_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ReminderService(db).register_push_token(current_user, payload)
+    preferences = ReminderService(db).register_push_token(current_user, payload)
+    _invalidate_reminder_caches(current_user.id)
+    return preferences
 
 
 @router.get("/due", response_model=list[DueReminder])
@@ -47,4 +66,10 @@ def get_due_reminders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return ReminderService(db).get_due_reminders(current_user, current_time=current_time)
+    return ReminderService(db).get_due_reminders(
+        current_user, current_time=current_time
+    )
+
+
+def _invalidate_reminder_caches(user_id: int) -> None:
+    invalidate_user_cache(user_id, CacheNamespace.PROFILE, CacheNamespace.DASHBOARD)

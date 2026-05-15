@@ -21,6 +21,13 @@ from app.models.journal import JournalEntry
 from app.models.reminder_preference import ReminderPreference
 from app.models.safety_flag import SafetyFlag
 from app.models.user import User
+from app.services.cache_service import (
+    CacheNamespace,
+    CacheTTL,
+    cache_get_or_set,
+    invalidate_user_cache,
+    user_cache_key,
+)
 from app.schemas.user import (
     PrivacyCenterResponse,
     UserPreferencesResponse,
@@ -84,12 +91,24 @@ class DeleteAccountRequest(BaseModel):
 
 @router.get("/me", response_model=UserResponse)
 def read_current_user(current_user: User = Depends(get_current_user)):
-    return current_user
+    key = user_cache_key(CacheNamespace.PROFILE, current_user.id, "me")
+    return cache_get_or_set(
+        key,
+        CacheTTL.PROFILE,
+        lambda: UserResponse.model_validate(current_user),
+        response_model=UserResponse,
+    )
 
 
 @router.get("/me/preferences", response_model=UserPreferencesResponse)
 def get_my_preferences(current_user: User = Depends(get_current_user)):
-    return _serialize_preferences(current_user)
+    key = user_cache_key(CacheNamespace.PROFILE, current_user.id, "preferences")
+    return cache_get_or_set(
+        key,
+        CacheTTL.PROFILE,
+        lambda: _serialize_preferences(current_user),
+        response_model=UserPreferencesResponse,
+    )
 
 
 @router.put("/me/preferences", response_model=UserPreferencesResponse)
@@ -109,18 +128,24 @@ def update_my_preferences(
 
     db.commit()
     db.refresh(current_user)
+    _invalidate_profile_caches(current_user.id)
     return _serialize_preferences(current_user)
 
 
 @router.get("/me/privacy-center", response_model=PrivacyCenterResponse)
 def get_privacy_center(current_user: User = Depends(get_current_user)):
-    preferences = _serialize_preferences(current_user)
-    return {
-        "notice_version": PRIVACY_NOTICE_VERSION,
-        "notice": PRIVACY_NOTICE,
-        "preferences": preferences,
-        "export_options": EXPORT_OPTIONS,
-    }
+    key = user_cache_key(CacheNamespace.PRIVACY, current_user.id, "privacy-center")
+    return cache_get_or_set(
+        key,
+        CacheTTL.PROFILE,
+        lambda: {
+            "notice_version": PRIVACY_NOTICE_VERSION,
+            "notice": PRIVACY_NOTICE,
+            "preferences": _serialize_preferences(current_user),
+            "export_options": EXPORT_OPTIONS,
+        },
+        response_model=PrivacyCenterResponse,
+    )
 
 
 @router.post("/me/privacy-notice/accept", response_model=UserPreferencesResponse)
@@ -140,6 +165,7 @@ def accept_privacy_notice(
     current_user.privacy_preferences = privacy
     db.commit()
     db.refresh(current_user)
+    _invalidate_profile_caches(current_user.id)
     return _serialize_preferences(current_user)
 
 
@@ -191,6 +217,7 @@ def delete_my_account(
         )
 
     _delete_owned_data(db, current_user)
+    _invalidate_profile_caches(current_user.id)
     db.delete(current_user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -665,4 +692,15 @@ def _delete_owned_data(db: Session, user: User) -> None:
     )
     db.query(ReminderPreference).filter(ReminderPreference.user_id == user.id).delete(
         synchronize_session=False
+    )
+
+
+def _invalidate_profile_caches(user_id: int) -> None:
+    invalidate_user_cache(
+        user_id,
+        CacheNamespace.PROFILE,
+        CacheNamespace.PRIVACY,
+        CacheNamespace.PERSONALIZATION,
+        CacheNamespace.DASHBOARD,
+        CacheNamespace.INSIGHTS,
     )
