@@ -14,11 +14,10 @@ import { colors } from "../theme/colors";
 import {
   AITone,
   DEFAULT_USER_PREFERENCES,
-  PreferredReflectionFormat,
   ReminderFrequency,
   updateUserPreferences,
 } from "../api/user";
-import { useTranslation } from "../i18n/I18nContext";
+import { supportedLanguages, useTranslation } from "../i18n/I18nContext";
 
 type Props = { onDone: () => void };
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
@@ -36,21 +35,6 @@ const GOALS = [
   { key: "sleep_better", label: "sleepBetter", icon: "moon-outline" },
 ];
 
-const FORMATS: Array<{
-  key: PreferredReflectionFormat;
-  label: string;
-  desc: string;
-  icon: string;
-}> = [
-  { key: "diary", label: "diary", desc: "diaryDesc", icon: "journal-outline" },
-  {
-    key: "chat",
-    label: "chat",
-    desc: "chatDesc",
-    icon: "chatbubble-ellipses-outline",
-  },
-  { key: "quiz", label: "quiz", desc: "quizDesc", icon: "help-circle-outline" },
-];
 
 const FREQUENCIES: Array<{ key: ReminderFrequency; label: string }> = [
   { key: "daily", label: "daily" },
@@ -67,11 +51,10 @@ const TONES: Array<{ key: AITone; label: string; desc: string }> = [
 ];
 
 export function PersonalizationOnboardingScreen({ onDone }: Props) {
-  const { t } = useTranslation();
+  const { language, setLanguage, t } = useTranslation();
   const [step, setStep] = useState<Step>(0);
   const [saving, setSaving] = useState(false);
   const [goals, setGoals] = useState<string[]>([]);
-  const [format, setFormat] = useState<PreferredReflectionFormat>("diary");
   const [frequency, setFrequency] = useState<ReminderFrequency>("none");
   const [journalPrivate, setJournalPrivate] = useState(true);
   const [anonymousDefault, setAnonymousDefault] = useState(false);
@@ -100,7 +83,6 @@ export function PersonalizationOnboardingScreen({ onDone }: Props) {
             }
           : {
               emotional_goals: goals,
-              preferred_reflection_format: format,
               reminder_frequency: frequency,
               privacy_preferences: {
                 journal_private_default: journalPrivate,
@@ -156,6 +138,30 @@ export function PersonalizationOnboardingScreen({ onDone }: Props) {
       >
         {step === 0 ? (
           <View>
+            <Text style={styles.title}>{t("languageSetupTitle")}</Text>
+            <Text style={styles.subtitle}>{t("languageSetupSub")}</Text>
+            {supportedLanguages.map((item) => {
+              const active = language === item.key;
+              return (
+                <Pressable
+                  key={item.key}
+                  style={[styles.fullOption, active && styles.optionOn]}
+                  onPress={() => void setLanguage(item.key)}
+                >
+                  <Ionicons
+                    name="language-outline"
+                    size={22}
+                    color={active ? colors.coral : colors.textMuted}
+                  />
+                  <Text style={[styles.optionTitle, active && styles.optionTitleOn]}>{item.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {step === 1 ? (
+          <View>
             <Text style={styles.title}>{t("supportQuestion")}</Text>
             <Text style={styles.subtitle}>{t("supportQuestionSub")}</Text>
             <View style={styles.grid}>
@@ -184,35 +190,6 @@ export function PersonalizationOnboardingScreen({ onDone }: Props) {
                 );
               })}
             </View>
-          </View>
-        ) : null}
-
-        {step === 1 ? (
-          <View>
-            <Text style={styles.title}>{t("preferredReflectionFormat")}</Text>
-            <Text style={styles.subtitle}>
-              {t("reflectionFormatQuestionSub")}
-            </Text>
-            {FORMATS.map((item) => (
-              <Pressable
-                key={item.key}
-                style={[
-                  styles.fullOption,
-                  format === item.key && styles.optionOn,
-                ]}
-                onPress={() => setFormat(item.key)}
-              >
-                <Ionicons
-                  name={item.icon as any}
-                  size={22}
-                  color={format === item.key ? colors.coral : colors.textMuted}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.optionTitle}>{t(item.label)}</Text>
-                  <Text style={styles.optionDesc}>{t(item.desc)}</Text>
-                </View>
-              </Pressable>
-            ))}
           </View>
         ) : null}
 

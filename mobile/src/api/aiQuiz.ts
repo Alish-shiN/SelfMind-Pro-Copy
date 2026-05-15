@@ -128,11 +128,11 @@ export function getAiQuizSession(session_id: number) {
   });
 }
 
-export function submitAiQuiz(session_id: number, answers: AiQuizSubmitAnswer[]) {
+export function submitAiQuiz(session_id: number, answers: AiQuizSubmitAnswer[], language = 'en') {
   return apiFetch<AiQuizResultDetail>(`/ai-quiz/${session_id}/submit`, {
     method: 'POST',
     auth: true,
-    body: JSON.stringify({ answers }),
+    body: JSON.stringify({ answers, language }),
   });
 }
 

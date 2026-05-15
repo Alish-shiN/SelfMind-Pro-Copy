@@ -183,7 +183,7 @@ export function AiQuizScreen({ navigation }: Props) {
           score: answer.score,
         };
       });
-      const submitted = await submitAiQuiz(session.id, payloadAnswers);
+      const submitted = await submitAiQuiz(session.id, payloadAnswers, language);
       setResult(submitted);
       setMode("result");
       await loadLanding();
@@ -192,7 +192,7 @@ export function AiQuizScreen({ navigation }: Props) {
     } finally {
       setSubmitting(false);
     }
-  }, [answers, handleAuthError, loadLanding, questions, session]);
+  }, [answers, handleAuthError, language, loadLanding, questions, session]);
 
   const viewResult = useCallback(
     async (resultId: number) => {

@@ -34,6 +34,7 @@ class AIQuizAnswerItem(BaseModel):
 
 class AIQuizSubmitRequest(BaseModel):
     answers: list[AIQuizAnswerItem]
+    language: str = "en"
 
 
 class AIQuizMicroPractice(BaseModel):

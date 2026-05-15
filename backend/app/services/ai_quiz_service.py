@@ -101,6 +101,7 @@ class AIQuizService:
             questions=session.generated_questions,
             answers=answer_payload,
             context=context,
+            language=payload.language,
         )
         previous_result = self.repo.get_latest_result_for_type(
             current_user.id, quiz_type, exclude_session_id=session.id

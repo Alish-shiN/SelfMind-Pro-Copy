@@ -29,6 +29,19 @@ const MOOD_EMOJI: Record<string, string> = {
 };
 
 const PERIOD_OPTIONS = ["7d", "30d", "90d"] as const;
+const QUIZ_TYPE_ALIASES: Record<string, string> = {
+  stress_reflection: "stress",
+};
+
+function normalizeQuizType(value?: string | null) {
+  const key = (value || "stress").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return QUIZ_TYPE_ALIASES[key] ?? key;
+}
+
+function translatedQuizTitle(value: string | null | undefined, t: (key: string) => string) {
+  return t(`quizType_${normalizeQuizType(value)}_title`);
+}
+
 type AnalyticsPeriod = (typeof PERIOD_OPTIONS)[number];
 type AnalyticsGranularity = "day" | "week" | "month";
 
@@ -644,13 +657,13 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
                 {t("latestQuizActionPlan")}
               </Text>
               <Text style={styles.sectionHint}>
-                {data.latest_quiz_action_plan.quiz_title}
+                {translatedQuizTitle(data.latest_quiz_action_plan.quiz_type, t)}
               </Text>
             </View>
             <View style={styles.quizPlanCard}>
               <View style={styles.quizPlanTop}>
                 <Text style={styles.quizPlanTitle}>
-                  {data.latest_quiz_action_plan.quiz_title}
+                  {translatedQuizTitle(data.latest_quiz_action_plan.quiz_type, t)}
                 </Text>
                 <Text style={styles.quizPlanScore}>
                   {Math.round(data.latest_quiz_action_plan.score)}

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { ApiError } from "../api/client";
 import { getDashboardHome } from "../api/dashboard";
+import { getCurrentUser } from "../api/user";
 import { getAiQuizHistory } from "../api/aiQuiz";
 import { getMyChatSessions } from "../api/chat";
 import {
@@ -78,8 +79,10 @@ function achievementCategoryLabel(
   return labels[category];
 }
 
-
-const SELF_CARE_TEMPLATE_TRANSLATION_KEYS: Record<string, { title: string; description: string }> = {
+const SELF_CARE_TEMPLATE_TRANSLATION_KEYS: Record<
+  string,
+  { title: string; description: string }
+> = {
   mindful_breathing: {
     title: "goalTemplateMindfulBreathingTitle",
     description: "goalTemplateMindfulBreathingDesc",
@@ -122,8 +125,12 @@ const SELF_CARE_TEMPLATE_TRANSLATION_KEYS: Record<string, { title: string; descr
   },
 };
 
-const LEGACY_GOAL_TITLE_KEYS: Record<string, { title: string; description: string }> = {
-  "reflect 3 times this week": SELF_CARE_TEMPLATE_TRANSLATION_KEYS.reflect_3_times,
+const LEGACY_GOAL_TITLE_KEYS: Record<
+  string,
+  { title: string; description: string }
+> = {
+  "reflect 3 times this week":
+    SELF_CARE_TEMPLATE_TRANSLATION_KEYS.reflect_3_times,
   "track mood 5 times": SELF_CARE_TEMPLATE_TRANSLATION_KEYS.track_mood_5_times,
   "mindful breathing": SELF_CARE_TEMPLATE_TRANSLATION_KEYS.mindful_breathing,
   "short walk": SELF_CARE_TEMPLATE_TRANSLATION_KEYS.short_walk,
@@ -139,8 +146,14 @@ function normalizeGoalLookup(value?: string | null) {
   return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function templateTranslation(goal: { template_key?: string | null; title?: string | null }) {
-  if (goal.template_key && SELF_CARE_TEMPLATE_TRANSLATION_KEYS[goal.template_key]) {
+function templateTranslation(goal: {
+  template_key?: string | null;
+  title?: string | null;
+}) {
+  if (
+    goal.template_key &&
+    SELF_CARE_TEMPLATE_TRANSLATION_KEYS[goal.template_key]
+  ) {
     return SELF_CARE_TEMPLATE_TRANSLATION_KEYS[goal.template_key];
   }
   return LEGACY_GOAL_TITLE_KEYS[normalizeGoalLookup(goal.title)];
@@ -151,38 +164,62 @@ function localizedGoalTitle(
   t: (key: string) => string,
 ) {
   const keys = templateTranslation(goal);
-  return keys ? t(keys.title) : goal.title || t("goalTemplateCustomSelfCareTitle");
+  return keys
+    ? t(keys.title)
+    : goal.title || t("goalTemplateCustomSelfCareTitle");
 }
 
 function localizedGoalDescription(
-  goal: { template_key?: string | null; title?: string | null; description?: string | null },
+  goal: {
+    template_key?: string | null;
+    title?: string | null;
+    description?: string | null;
+  },
   t: (key: string) => string,
 ) {
   const keys = templateTranslation(goal);
-  return keys ? t(keys.description) : goal.description || t("goalNoDescription");
+  return keys
+    ? t(keys.description)
+    : goal.description || t("goalNoDescription");
 }
 
-function localizedProgressMessage(item: GoalProgress, t: (key: string, params?: Record<string, string | number>) => string) {
+function localizedProgressMessage(
+  item: GoalProgress,
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
   const periodKey = item.goal.period === "daily" ? "today" : "thisWeek";
   if (item.goal.goal_type === "reflection") {
     return item.current_count
-      ? t("goalProgressReflection", { count: item.current_count, period: t(periodKey) })
+      ? t("goalProgressReflection", {
+          count: item.current_count,
+          period: t(periodKey),
+        })
       : t("goalProgressReflectionEmpty");
   }
   if (item.goal.goal_type === "mood_tracking") {
     return item.current_count
-      ? t("goalProgressMood", { count: item.current_count, period: t(periodKey) })
+      ? t("goalProgressMood", {
+          count: item.current_count,
+          period: t(periodKey),
+        })
       : t("goalProgressMoodEmpty");
   }
   if (item.is_completed) return t("goalProgressCompleted");
-  if (item.current_count) return t("goalProgressSteps", { count: item.current_count });
+  if (item.current_count)
+    return t("goalProgressSteps", { count: item.current_count });
   return t("goalProgressEmpty");
 }
 
-function localizedSummaryMessage(summary: WeeklyGoalSummary | null, t: (key: string) => string) {
-  if (!summary || summary.active_goals === 0) return t("weeklySummaryEmptyDesc");
-  if (summary.completed_goals === summary.active_goals) return t("weeklySummaryCompleteDesc");
-  if (summary.completed_goals || summary.partially_completed_goals) return t("weeklySummaryProgressDesc");
+function localizedSummaryMessage(
+  summary: WeeklyGoalSummary | null,
+  t: (key: string) => string,
+) {
+  if (!summary || summary.active_goals === 0)
+    return t("weeklySummaryEmptyDesc");
+  if (summary.completed_goals === summary.active_goals)
+    return t("weeklySummaryCompleteDesc");
+  if (summary.completed_goals || summary.partially_completed_goals)
+    return t("weeklySummaryProgressDesc");
   return t("weeklySummaryFreshDesc");
 }
 
@@ -214,7 +251,9 @@ function AddStateButton({
             size={15}
             color={added ? "#fff" : colors.coral}
           />
-          <Text style={[styles.addBadgeText, added && styles.addBadgeTextAdded]}>
+          <Text
+            style={[styles.addBadgeText, added && styles.addBadgeTextAdded]}
+          >
             {added ? addedLabel : label}
           </Text>
         </>
@@ -325,7 +364,7 @@ export function GoalsScreen() {
         dashboard,
         quizHistory,
         chatSessions,
-        trustedPhone,
+        currentUser,
         privacyReady,
         weeklyMoodReview,
         weeklySummaryCompleted,
@@ -337,7 +376,7 @@ export function GoalsScreen() {
         getDashboardHome().catch(() => null),
         getAiQuizHistory(100).catch(() => []),
         getMyChatSessions().catch(() => []),
-        getTrustedPersonPhone(),
+        getCurrentUser().catch(() => null),
         getAchievementPrivacyReady(),
         getAchievementWeeklyMoodReview(),
         getAchievementWeeklySummaryCompleted(),
@@ -364,7 +403,9 @@ export function GoalsScreen() {
       const completedGoalCount =
         s?.completed_goals ?? p.filter((item) => item.is_completed).length;
       const selfCareTemplateAdded = p.some(
-        (item) => item.goal.goal_type === "self_care" && Boolean(item.goal.template_key),
+        (item) =>
+          item.goal.goal_type === "self_care" &&
+          Boolean(item.goal.template_key),
       );
       const recoveryPracticeCount = p
         .filter((item) =>
@@ -391,7 +432,9 @@ export function GoalsScreen() {
             selfCareTemplateAdded,
             gentleGoalDays: completedGoalCount,
             recoveryPracticeCount,
-            trustedPersonPhone: trustedPhone,
+            trustedPersonPhone: currentUser
+              ? await getTrustedPersonPhone(currentUser.id)
+              : null,
             weeklyMoodReviewViewed: weeklyMoodReview,
             weeklySummaryViewed: weeklySummaryCompleted || Boolean(s),
             weeklySummaryCount: weeklySummaryCompleted || Boolean(s) ? 1 : 0,
@@ -427,7 +470,13 @@ export function GoalsScreen() {
       await load();
       if (options?.feedbackKey) {
         setAddedKey(options.feedbackKey);
-        setTimeout(() => setAddedKey((current) => (current === options.feedbackKey ? null : current)), 1600);
+        setTimeout(
+          () =>
+            setAddedKey((current) =>
+              current === options.feedbackKey ? null : current,
+            ),
+          1600,
+        );
       }
       if (!options?.silentSuccess) {
         Alert.alert(t("goalsTitle"), success);
@@ -503,8 +552,8 @@ export function GoalsScreen() {
             </Text>
             <Text style={styles.meta}>
               {t("completed")} {summary?.completed_goals ?? 0} • {t("partial")}{" "}
-              {summary?.partially_completed_goals ?? 0} • {t("achievementStatusNotYet")}{" "}
-              {summary?.missed_goals ?? 0}
+              {summary?.partially_completed_goals ?? 0} •{" "}
+              {t("achievementStatusNotYet")} {summary?.missed_goals ?? 0}
             </Text>
           </View>
 
@@ -513,16 +562,24 @@ export function GoalsScreen() {
             onPress={() => setAchievementsVisible(true)}
           >
             <View style={styles.achievementEntryIcon}>
-              <Ionicons name="sparkles-outline" size={22} color={colors.coral} />
+              <Ionicons
+                name="sparkles-outline"
+                size={22}
+                color={colors.coral}
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.achievementEntryTitle}>{t("achievements")}</Text>
+              <Text style={styles.achievementEntryTitle}>
+                {t("achievements")}
+              </Text>
               <Text style={styles.achievementEntrySubtitle}>
                 {t("achievementsEntrySubtitle")}
               </Text>
               <Text style={styles.achievementEntryMeta}>
                 {t("achievementsUnlockedCount", {
-                  unlocked: achievements.filter((item) => item.status === "unlocked").length,
+                  unlocked: achievements.filter(
+                    (item) => item.status === "unlocked",
+                  ).length,
                   total: achievements.length,
                 })}
               </Text>
@@ -540,10 +597,14 @@ export function GoalsScreen() {
             progress.map((item) => (
               <View style={styles.card} key={item.goal.id}>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.goalTitle}>{localizedGoalTitle(item.goal, t)}</Text>
+                  <Text style={styles.goalTitle}>
+                    {localizedGoalTitle(item.goal, t)}
+                  </Text>
                   <Text style={styles.goalType}>{t(item.goal.goal_type)}</Text>
                 </View>
-                <Text style={styles.description}>{localizedGoalDescription(item.goal, t)}</Text>
+                <Text style={styles.description}>
+                  {localizedGoalDescription(item.goal, t)}
+                </Text>
                 <View style={styles.progressTrack}>
                   <View
                     style={[
@@ -556,7 +617,9 @@ export function GoalsScreen() {
                   {item.current_count}/{item.target_count} •{" "}
                   {item.progress_percentage}%
                 </Text>
-                <Text style={styles.message}>{localizedProgressMessage(item, t)}</Text>
+                <Text style={styles.message}>
+                  {localizedProgressMessage(item, t)}
+                </Text>
                 <View style={styles.actions}>
                   {item.goal.goal_type === "self_care" ||
                   item.goal.goal_type === "custom" ? (
@@ -576,13 +639,10 @@ export function GoalsScreen() {
                   <Pressable
                     style={styles.smallBtnLight}
                     onPress={() =>
-                      run(
-                        async () => {
-                            await updateGoal(item.goal.id, { is_active: false });
-                            await setAchievementGoalPaused();
-                          },
-                        t("goalPaused"),
-                      )
+                      run(async () => {
+                        await updateGoal(item.goal.id, { is_active: false });
+                        await setAchievementGoalPaused();
+                      }, t("goalPaused"))
                     }
                     disabled={saving}
                   >
@@ -637,7 +697,9 @@ export function GoalsScreen() {
                 <View style={styles.templateTopRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.templateTitle}>{t(goal.titleKey)}</Text>
-                    <Text style={styles.description}>{t(goal.descriptionKey)}</Text>
+                    <Text style={styles.description}>
+                      {t(goal.descriptionKey)}
+                    </Text>
                   </View>
                   <AddStateButton
                     label={t("add")}
@@ -651,7 +713,9 @@ export function GoalsScreen() {
           })}
 
           <Text style={styles.sectionTitle}>{t("selfCareTemplates")}</Text>
-          <Text style={styles.sectionSubtitle}>{t("selfCareTemplatesSub")}</Text>
+          <Text style={styles.sectionSubtitle}>
+            {t("selfCareTemplatesSub")}
+          </Text>
           <View style={styles.templateGrid}>
             {templates.map((template) => {
               const keys = SELF_CARE_TEMPLATE_TRANSLATION_KEYS[template.key];
@@ -672,8 +736,17 @@ export function GoalsScreen() {
                   {isSaving ? (
                     <ActivityIndicator size="small" color={colors.coral} />
                   ) : (
-                    <Text style={[styles.templateChipText, isAdded && styles.templateChipTextAdded]}>
-                      {isAdded ? t("added") : keys ? t(keys.title) : template.title}
+                    <Text
+                      style={[
+                        styles.templateChipText,
+                        isAdded && styles.templateChipTextAdded,
+                      ]}
+                    >
+                      {isAdded
+                        ? t("added")
+                        : keys
+                          ? t(keys.title)
+                          : template.title}
                     </Text>
                   )}
                 </Pressable>
@@ -692,7 +765,9 @@ export function GoalsScreen() {
         <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
           <View style={styles.modalHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.kicker}>{t("achievementsEntrySubtitle")}</Text>
+              <Text style={styles.kicker}>
+                {t("achievementsEntrySubtitle")}
+              </Text>
               <Text style={styles.title}>{t("achievements")}</Text>
             </View>
             <Pressable
@@ -705,7 +780,9 @@ export function GoalsScreen() {
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <Text style={styles.sectionSubtitle}>
               {t("achievementsUnlockedCount", {
-                unlocked: achievements.filter((item) => item.status === "unlocked").length,
+                unlocked: achievements.filter(
+                  (item) => item.status === "unlocked",
+                ).length,
                 total: achievements.length,
               })}
             </Text>
@@ -807,7 +884,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#FFF3F1",
   },
-  achievementEntryTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
+  achievementEntryTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
   achievementEntrySubtitle: {
     color: colors.textMuted,
     fontSize: 12,
@@ -822,11 +903,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   achievementEntryAction: {
-    alignItems: "flex-end",
+    alignItems: "center",
     flexDirection: "row",
     gap: 2,
+    width: 92,
   },
-  achievementEntryActionText: { color: colors.coral, fontSize: 12, fontWeight: "900" },
+  achievementEntryActionText: {
+    color: colors.coral,
+    fontSize: 12,
+    fontWeight: "900",
+    flexShrink: 1,
+    flexWrap: "wrap",
+    lineHeight: 14,
+    textAlign: "right",
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1010,7 +1100,10 @@ const styles = StyleSheet.create({
     borderColor: "#E8ECF4",
   },
   templatePressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
-  templateAdded: { borderColor: colors.accentGreen, backgroundColor: "#F4FBF7" },
+  templateAdded: {
+    borderColor: colors.accentGreen,
+    backgroundColor: "#F4FBF7",
+  },
   templateTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   templateTitle: { color: colors.text, fontSize: 15, fontWeight: "900" },
   templateGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -1023,6 +1116,11 @@ const styles = StyleSheet.create({
     borderColor: colors.coral,
     minHeight: 36,
     justifyContent: "center",
+  },
+  templateChipPressed: { opacity: 0.78, transform: [{ scale: 0.97 }] },
+  templateChipAdded: {
+    backgroundColor: colors.accentGreen,
+    borderColor: colors.accentGreen,
   },
   templateChipPressed: { opacity: 0.78, transform: [{ scale: 0.97 }] },
   templateChipAdded: { backgroundColor: colors.accentGreen, borderColor: colors.accentGreen },
@@ -1043,7 +1141,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addBadgeLoading: { backgroundColor: "#FFF9F7" },
-  addBadgeAdded: { backgroundColor: colors.accentGreen, borderColor: colors.accentGreen },
+  addBadgeAdded: {
+    backgroundColor: colors.accentGreen,
+    borderColor: colors.accentGreen,
+  },
   addBadgeText: { color: colors.coral, fontWeight: "900", fontSize: 12 },
   addBadgeTextAdded: { color: "#fff" },
 });
