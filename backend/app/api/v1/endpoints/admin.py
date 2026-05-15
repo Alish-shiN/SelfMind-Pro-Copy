@@ -22,6 +22,13 @@ from app.schemas.admin import (
     AdminUserSummary,
 )
 from app.services.admin_service import AdminService
+from app.services.cache_service import (
+    CacheNamespace,
+    CacheTTL,
+    cache_get_or_set,
+    invalidate_namespace,
+    user_cache_key,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -31,7 +38,13 @@ def list_users(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).list_users()
+    key = user_cache_key(CacheNamespace.ADMIN, current_admin.id, "users")
+    return cache_get_or_set(
+        key,
+        CacheTTL.ADMIN,
+        lambda: AdminService(db).list_users(),
+        response_model=list[AdminUserSummary],
+    )
 
 
 @router.patch("/users/{user_id}/status", response_model=AdminUserSummary)
@@ -41,7 +54,11 @@ def update_user_status(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).update_user_status(current_admin, user_id, payload.is_active)
+    user = AdminService(db).update_user_status(
+        current_admin, user_id, payload.is_active
+    )
+    _invalidate_admin_caches()
+    return user
 
 
 @router.patch("/users/{user_id}/role", response_model=AdminUserSummary)
@@ -51,7 +68,9 @@ def update_user_role(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).update_user_role(current_admin, user_id, payload.role)
+    user = AdminService(db).update_user_role(current_admin, user_id, payload.role)
+    _invalidate_admin_caches()
+    return user
 
 
 @router.get("/analytics/overview", response_model=AdminAnalyticsOverview)
@@ -59,7 +78,13 @@ def get_analytics_overview(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).get_analytics_overview()
+    key = user_cache_key(CacheNamespace.ADMIN, current_admin.id, "analytics-overview")
+    return cache_get_or_set(
+        key,
+        CacheTTL.ADMIN,
+        lambda: AdminService(db).get_analytics_overview(),
+        response_model=AdminAnalyticsOverview,
+    )
 
 
 @router.get("/moderation/posts", response_model=list[AdminCommunityPostModeration])
@@ -68,36 +93,68 @@ def list_moderation_posts(
     db: Session = Depends(get_db),
     current_moderator: User = Depends(get_current_moderator),
 ):
-    return AdminService(db).list_moderation_posts(moderation_status)
+    key = user_cache_key(
+        CacheNamespace.ADMIN,
+        current_moderator.id,
+        "moderation-posts",
+        moderation_status,
+    )
+    return cache_get_or_set(
+        key,
+        CacheTTL.ADMIN,
+        lambda: AdminService(db).list_moderation_posts(moderation_status),
+        response_model=list[AdminCommunityPostModeration],
+    )
 
 
-@router.patch("/moderation/posts/{post_id}", response_model=AdminCommunityPostModeration)
+@router.patch(
+    "/moderation/posts/{post_id}", response_model=AdminCommunityPostModeration
+)
 def moderate_post(
     post_id: int,
     payload: AdminModerationUpdate,
     db: Session = Depends(get_db),
     current_moderator: User = Depends(get_current_moderator),
 ):
-    return AdminService(db).moderate_post(post_id, payload, current_moderator)
+    post = AdminService(db).moderate_post(post_id, payload, current_moderator)
+    _invalidate_admin_caches()
+    return post
 
 
-@router.get("/moderation/comments", response_model=list[AdminCommunityCommentModeration])
+@router.get(
+    "/moderation/comments", response_model=list[AdminCommunityCommentModeration]
+)
 def list_moderation_comments(
     moderation_status: str | None = Query(default=None),
     db: Session = Depends(get_db),
     current_moderator: User = Depends(get_current_moderator),
 ):
-    return AdminService(db).list_moderation_comments(moderation_status)
+    key = user_cache_key(
+        CacheNamespace.ADMIN,
+        current_moderator.id,
+        "moderation-comments",
+        moderation_status,
+    )
+    return cache_get_or_set(
+        key,
+        CacheTTL.ADMIN,
+        lambda: AdminService(db).list_moderation_comments(moderation_status),
+        response_model=list[AdminCommunityCommentModeration],
+    )
 
 
-@router.patch("/moderation/comments/{comment_id}", response_model=AdminCommunityCommentModeration)
+@router.patch(
+    "/moderation/comments/{comment_id}", response_model=AdminCommunityCommentModeration
+)
 def moderate_comment(
     comment_id: int,
     payload: AdminModerationUpdate,
     db: Session = Depends(get_db),
     current_moderator: User = Depends(get_current_moderator),
 ):
-    return AdminService(db).moderate_comment(comment_id, payload, current_moderator)
+    comment = AdminService(db).moderate_comment(comment_id, payload, current_moderator)
+    _invalidate_admin_caches()
+    return comment
 
 
 @router.get("/safety/risk-items", response_model=list[AdminRiskItem])
@@ -106,7 +163,15 @@ def list_risk_items(
     db: Session = Depends(get_db),
     current_moderator: User = Depends(get_current_moderator),
 ):
-    return AdminService(db).list_risk_items(limit=limit)
+    key = user_cache_key(
+        CacheNamespace.ADMIN, current_moderator.id, "risk-items", {"limit": limit}
+    )
+    return cache_get_or_set(
+        key,
+        CacheTTL.ADMIN,
+        lambda: AdminService(db).list_risk_items(limit=limit),
+        response_model=list[AdminRiskItem],
+    )
 
 
 @router.get("/content", response_model=list[AdminContentResponse])
@@ -115,7 +180,15 @@ def list_content(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).list_content(content_type)
+    key = user_cache_key(
+        CacheNamespace.ADMIN, current_admin.id, "content", content_type
+    )
+    return cache_get_or_set(
+        key,
+        CacheTTL.ADMIN,
+        lambda: AdminService(db).list_content(content_type),
+        response_model=list[AdminContentResponse],
+    )
 
 
 @router.post("/content", response_model=AdminContentResponse, status_code=201)
@@ -124,7 +197,9 @@ def create_content(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).create_content(payload, current_admin)
+    content = AdminService(db).create_content(payload, current_admin)
+    _invalidate_admin_caches()
+    return content
 
 
 @router.patch("/content/{content_id}", response_model=AdminContentResponse)
@@ -134,7 +209,9 @@ def update_content(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).update_content(content_id, payload, current_admin)
+    content = AdminService(db).update_content(content_id, payload, current_admin)
+    _invalidate_admin_caches()
+    return content
 
 
 @router.delete("/content/{content_id}")
@@ -143,7 +220,9 @@ def delete_content(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    return AdminService(db).delete_content(content_id)
+    result = AdminService(db).delete_content(content_id)
+    _invalidate_admin_caches()
+    return result
 
 
 @router.get("/reports/summary.csv")
@@ -164,5 +243,12 @@ def export_summary_report(
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=selfmind-admin-summary.csv"},
+        headers={
+            "Content-Disposition": "attachment; filename=selfmind-admin-summary.csv"
+        },
     )
+
+
+def _invalidate_admin_caches() -> None:
+    invalidate_namespace(CacheNamespace.ADMIN)
+    invalidate_namespace(CacheNamespace.COMMUNITY)

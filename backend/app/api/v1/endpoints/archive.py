@@ -10,6 +10,12 @@ from app.models.journal import JournalEntry
 from app.models.journal_analysis import JournalAnalysis
 from app.models.user import User
 from app.schemas.archive import ArchiveSearchResult
+from app.services.cache_service import (
+    CacheNamespace,
+    CacheTTL,
+    cache_get_or_set,
+    user_cache_key,
+)
 
 router = APIRouter(prefix="/archive", tags=["archive"])
 
@@ -35,6 +41,55 @@ def search_archive(
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+):
+    filters = {
+        "q": q,
+        "tab": tab,
+        "start_date": start_date,
+        "end_date": end_date,
+        "mood_or_emotion": mood_or_emotion,
+        "tags": sorted(tags),
+        "favorites_only": favorites_only,
+        "favorite_ids": sorted(favorite_ids),
+        "sort": sort,
+        "limit": limit,
+    }
+    key = user_cache_key(CacheNamespace.ARCHIVE, current_user.id, "search", filters)
+    return cache_get_or_set(
+        key,
+        CacheTTL.ARCHIVE_SEARCH,
+        lambda: _search_archive_uncached(
+            db=db,
+            current_user=current_user,
+            q=q,
+            tab=tab,
+            start_date=start_date,
+            end_date=end_date,
+            mood_or_emotion=mood_or_emotion,
+            tags=tags,
+            favorites_only=favorites_only,
+            favorite_ids=favorite_ids,
+            sort=sort,
+            limit=limit,
+        ),
+        response_model=list[ArchiveSearchResult],
+    )
+
+
+def _search_archive_uncached(
+    *,
+    db: Session,
+    current_user: User,
+    q: str | None,
+    tab: str,
+    start_date: date | None,
+    end_date: date | None,
+    mood_or_emotion: str | None,
+    tags: list[str],
+    favorites_only: bool,
+    favorite_ids: list[int],
+    sort: str,
+    limit: int,
 ):
     favorite_id_set = set(favorite_ids)
     if favorites_only and not favorite_id_set:
